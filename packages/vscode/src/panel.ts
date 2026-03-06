@@ -8,6 +8,8 @@ export class SpekPanel {
   private panel: vscode.WebviewPanel;
   private handler: MessageHandler;
   private disposables: vscode.Disposable[] = [];
+  private webviewReady = false;
+  private pendingMessages: unknown[] = [];
 
   private constructor(
     private readonly context: vscode.ExtensionContext,
@@ -45,6 +47,12 @@ export class SpekPanel {
             workspacePath,
             theme: this.getCurrentTheme(),
           });
+          // 標記 ready，flush 等待中的訊息
+          this.webviewReady = true;
+          for (const pending of this.pendingMessages) {
+            this.panel.webview.postMessage(pending);
+          }
+          this.pendingMessages = [];
           return;
         }
 
@@ -101,6 +109,8 @@ export class SpekPanel {
     this.panel.onDidDispose(
       () => {
         SpekPanel.instance = undefined;
+        this.webviewReady = false;
+        this.pendingMessages = [];
         this.disposables.forEach((d) => d.dispose());
         this.disposables = [];
       },
@@ -124,12 +134,21 @@ export class SpekPanel {
   }
 
   postMessage(message: unknown) {
-    this.panel.webview.postMessage(message);
+    if (this.webviewReady) {
+      this.panel.webview.postMessage(message);
+    } else {
+      this.pendingMessages.push(message);
+    }
   }
 
   navigateTo(routePath: string) {
     this.panel.reveal();
-    this.panel.webview.postMessage({ type: "navigate", path: routePath });
+    const msg = { type: "navigate", path: routePath };
+    if (this.webviewReady) {
+      this.panel.webview.postMessage(msg);
+    } else {
+      this.pendingMessages.push(msg);
+    }
   }
 
   private getCurrentTheme(): "dark" | "light" {
