@@ -5,3 +5,4 @@ dist/
 packages/core/dist/
 packages/vscode/dist/
 *.vsix
+.idea/
