@@ -23,11 +23,10 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <p><b>0.7.6</b></p>
+        <p><b>0.7.7</b></p>
         <ul>
-            <li>Add native tree view navigation to IntelliJ plugin (Specs and Changes sidebar)</li>
-            <li>Add URL hash-based navigation for IntelliJ external browser fallback</li>
-            <li>Update acknowledgments in README</li>
+            <li>Fix deprecated URL(String) constructor usage in IntelliJ plugin (resolves Plugin Verifier warning)</li>
+            <li>Fix IntelliJ plugin.xml change-notes sync with release workflow</li>
         </ul>
     ]]></change-notes>
 
