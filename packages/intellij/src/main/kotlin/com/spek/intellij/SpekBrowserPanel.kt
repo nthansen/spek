@@ -30,6 +30,9 @@ class SpekBrowserPanel(private val project: Project) : Disposable {
     private var watchThread: Thread? = null
     private var watchService: WatchService? = null
     @Volatile private var disposed = false
+    @Volatile private var webviewReady = false
+    private val pendingNavigations = mutableListOf<String>()
+    var onFileChanged: (() -> Unit)? = null
 
     val component: JComponent
 
@@ -67,6 +70,13 @@ class SpekBrowserPanel(private val project: Project) : Disposable {
             ApplicationManager.getApplication().invokeLater {
                 if (disposed) return@invokeLater
                 jcefBrowser.loadURL(buildBrowserUrl())
+                // 延遲標記為 ready，讓頁面有時間載入
+                Timer().schedule(object : TimerTask() {
+                    override fun run() {
+                        webviewReady = true
+                        flushPendingNavigations()
+                    }
+                }, 2000)
             }
         }
 
@@ -236,6 +246,20 @@ class SpekBrowserPanel(private val project: Project) : Disposable {
             "",
             0,
         )
+        onFileChanged?.invoke()
+    }
+
+    private fun flushPendingNavigations() {
+        val paths: List<String>
+        synchronized(pendingNavigations) {
+            paths = pendingNavigations.toList()
+            pendingNavigations.clear()
+        }
+        if (paths.isNotEmpty()) {
+            ApplicationManager.getApplication().invokeLater {
+                navigateTo(paths.last())
+            }
+        }
     }
 
     private fun waitForApiReady(port: Int, encodedProjectPath: String) {
@@ -265,12 +289,25 @@ class SpekBrowserPanel(private val project: Project) : Disposable {
     }
 
     fun navigateTo(path: String) {
-        val escapedPath = path.replace("'", "\\'")
-        browser?.cefBrowser?.executeJavaScript(
-            "window.dispatchEvent(new CustomEvent('spek:navigate', { detail: { path: '$escapedPath' } }));",
-            "",
-            0,
-        )
+        if (browser != null) {
+            if (!webviewReady) {
+                synchronized(pendingNavigations) {
+                    pendingNavigations.add(path)
+                }
+                return
+            }
+            val escapedPath = path.replace("'", "\\'")
+            browser?.cefBrowser?.executeJavaScript(
+                "window.dispatchEvent(new CustomEvent('spek:navigate', { detail: { path: '$escapedPath' } }));",
+                "",
+                0,
+            )
+        } else {
+            // JCEF 不可用，開啟外部瀏覽器
+            val baseUrl = buildBrowserUrl()
+            val hashUrl = baseUrl + "#${path}"
+            com.intellij.ide.BrowserUtil.browse(hashUrl)
+        }
     }
 
     override fun dispose() {

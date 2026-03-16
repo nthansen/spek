@@ -23,6 +23,11 @@ const INTELLIJ_PROJECT_PATH = getUrlParam("projectPath");
 const INTELLIJ_API_BASE = getUrlParam("apiBase");
 const INTELLIJ_THEME = getUrlParam("theme") || "dark";
 
+// URL hash 可作為初始路由（fallback 外部瀏覽器導覽用）
+const initialPath = window.location.hash
+  ? window.location.hash.slice(1)
+  : "/dashboard";
+
 const router = createMemoryRouter(
   [
     {
@@ -39,7 +44,7 @@ const router = createMemoryRouter(
     },
   ],
   {
-    initialEntries: ["/dashboard"],
+    initialEntries: [initialPath],
   },
 );
 

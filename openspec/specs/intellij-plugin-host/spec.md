@@ -23,12 +23,12 @@ The plugin SHALL detect the presence of OpenSpec content by checking for `opensp
 - **THEN** the plugin SHALL not register its Tool Window and remain inactive
 
 ### Requirement: Tool Window registration
-The plugin SHALL register a Tool Window with id `spek` that appears in the IDE's right sidebar. The Tool Window SHALL display the JCEF webview content.
+The plugin SHALL register a Tool Window with id `spek` that appears in the IDE's right sidebar. The Tool Window SHALL display a vertical split pane containing the OpenSpec tree navigator on top and the JCEF webview content (or external browser fallback) on the bottom.
 
 #### Scenario: Tool Window visibility
 - **WHEN** a project with OpenSpec content is detected
 - **THEN** a "spek" Tool Window icon SHALL appear in the right sidebar
-- **AND** clicking the icon SHALL open/reveal the Tool Window with the webview
+- **AND** clicking the icon SHALL open/reveal the Tool Window with both the tree navigator and the webview
 
 ### Requirement: Open spek action
 The plugin SHALL register an action "Open spek" accessible from the Tools menu and via keyboard shortcut. The action SHALL open or reveal the spek Tool Window.
