@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.5
+
+- Add external browser fallback for IntelliJ plugin when JCEF is unavailable (e.g., Android Studio)
+
 ## 0.7.4
 
 - Fix IntelliJ plugin HTTP 404 error when opening specs/changes at startup
