@@ -179,7 +179,7 @@ cd packages/intellij && ./gradlew buildPlugin  # Build plugin ZIP
 
 ## Acknowledgments
 
-This project was inspired by [龍哥（高見龍）](https://kaochenlong.com)'s articles on SDD (Spec Driven Development). spek was created because [Spectra](https://github.com/kaochenlong/spectra-app) does not have a Linux version.
+This project was inspired by [龍哥（高見龍）](https://kaochenlong.com)'s articles on SDD (Spec Driven Development). Special thanks to him for his contributions to SDD and [OpenSpec](https://github.com/Fission-AI/OpenSpec).
 
 - [SDD — Spec Driven Development](https://kaochenlong.com/sdd-spec-driven-development)
 - [Spectra with OpenSpec](https://kaochenlong.com/spectra-with-openspec)
