@@ -13,8 +13,13 @@ import java.net.URL
 import java.nio.file.*
 import java.util.Timer
 import java.util.TimerTask
+import java.awt.FlowLayout
+import javax.swing.BorderFactory
+import javax.swing.BoxLayout
+import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JLabel
+import javax.swing.JPanel
 import javax.swing.SwingConstants
 import kotlin.concurrent.thread
 
@@ -61,11 +66,7 @@ class SpekBrowserPanel(private val project: Project) : Disposable {
 
             ApplicationManager.getApplication().invokeLater {
                 if (disposed) return@invokeLater
-                val isDark = isIdeInDarkMode()
-                val theme = if (isDark) "dark" else "light"
-                val url = "http://localhost:$port/spek/webview/index.intellij.html" +
-                    "?projectPath=$encodedPath&apiBase=http://localhost:$port/api/spek&theme=$theme"
-                jcefBrowser.loadURL(url)
+                jcefBrowser.loadURL(buildBrowserUrl())
             }
         }
 
@@ -73,10 +74,59 @@ class SpekBrowserPanel(private val project: Project) : Disposable {
     }
 
     private fun createFallbackComponent(): JComponent {
-        return JLabel(
-            "<html><center>JCEF is not available.<br>Please use a JetBrains IDE version that supports JCEF.</center></html>",
-            SwingConstants.CENTER,
+        val panel = JPanel()
+        panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
+        panel.border = BorderFactory.createEmptyBorder(20, 20, 20, 20)
+
+        val messageLabel = JLabel(
+            "<html><center>JCEF is not available in this IDE.<br>" +
+                "spek will open in your external browser instead.</center></html>",
         )
+        messageLabel.horizontalAlignment = SwingConstants.CENTER
+        messageLabel.alignmentX = JComponent.CENTER_ALIGNMENT
+
+        val buttonPanel = JPanel(FlowLayout(FlowLayout.CENTER))
+        val openButton = JButton("Open in Browser")
+        openButton.addActionListener { openInExternalBrowser() }
+        buttonPanel.alignmentX = JComponent.CENTER_ALIGNMENT
+        buttonPanel.add(openButton)
+
+        panel.add(javax.swing.Box.createVerticalGlue())
+        panel.add(messageLabel)
+        panel.add(javax.swing.Box.createVerticalStrut(12))
+        panel.add(buttonPanel)
+        panel.add(javax.swing.Box.createVerticalGlue())
+
+        // 背景等待 server 就緒後自動開啟瀏覽器
+        ApplicationManager.getApplication().executeOnPooledThread {
+            org.jetbrains.ide.BuiltInServerManager.getInstance().waitForStart()
+            if (disposed) return@executeOnPooledThread
+
+            val port = org.jetbrains.ide.BuiltInServerManager.getInstance().port
+            val encodedPath = java.net.URLEncoder.encode(project.basePath ?: "", "UTF-8")
+            waitForApiReady(port, encodedPath)
+            if (disposed) return@executeOnPooledThread
+
+            ApplicationManager.getApplication().invokeLater {
+                if (!disposed) openInExternalBrowser()
+            }
+        }
+
+        return panel
+    }
+
+    private fun buildBrowserUrl(): String {
+        val port = org.jetbrains.ide.BuiltInServerManager.getInstance().port
+        val projectPath = project.basePath ?: ""
+        val encodedPath = java.net.URLEncoder.encode(projectPath, "UTF-8")
+        val theme = if (isIdeInDarkMode()) "dark" else "light"
+        return "http://localhost:$port/spek/webview/index.intellij.html" +
+            "?projectPath=$encodedPath&apiBase=http://localhost:$port/api/spek&theme=$theme"
+    }
+
+    private fun openInExternalBrowser() {
+        val url = buildBrowserUrl()
+        com.intellij.ide.BrowserUtil.browse(url)
     }
 
     private fun isIdeInDarkMode(): Boolean {
