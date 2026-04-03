@@ -102,6 +102,76 @@ BDD 關鍵字上色 — WHEN/GIVEN（藍）、THEN（綠）、AND（灰）、MUS
 
 ![搜尋](screenshots/search.png)
 
+## GitHub Action
+
+使用 spek GitHub Action 在 CI 中自動建置 OpenSpec 靜態網站。
+
+### 基本用法
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0  # 建議取得完整 git history 以取得正確的 change timestamps
+
+- uses: kewang/spek@master
+  with:
+    title: "My Project - OpenSpec"
+```
+
+### 部署到 GitHub Pages
+
+```yaml
+name: Build OpenSpec Site
+on:
+  push:
+    branches: [main]
+    paths: ["openspec/**"]
+
+permissions:
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: kewang/spek@master
+        with:
+          title: "My Project - OpenSpec"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: spek-output
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
+```
+
+### Inputs
+
+| Input | 說明 | 預設值 |
+|-------|------|--------|
+| `repo-path` | 包含 `openspec/` 目錄的 repo 路徑 | `.` |
+| `output-path` | 輸出 HTML 檔案路徑 | `spek-output/spek.html` |
+| `title` | 頁面標題 | `OpenSpec Viewer` |
+| `spek-version` | spek 版本（tag、branch 或 SHA） | `master` |
+
+### Outputs
+
+| Output | 說明 |
+|--------|------|
+| `html-path` | 產出 HTML 檔案的絕對路徑 |
+
+> **注意：** 建議在 checkout 步驟使用 `fetch-depth: 0` 以取得正確的 change timestamps。若無完整 git history，timestamps 將不可用（build 仍會成功）。
+
 ## OpenSpec 目錄結構
 
 spek 預期你的 repo 底下有以下結構：

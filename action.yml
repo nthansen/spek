@@ -1,0 +1,76 @@
+name: "spek - OpenSpec Static Site"
+description: "Build a static HTML viewer for your OpenSpec documentation"
+branding:
+  icon: "book-open"
+  color: "orange"
+
+inputs:
+  repo-path:
+    description: "Path to the repository containing openspec/ directory"
+    required: false
+    default: "."
+  output-path:
+    description: "Output file path for the generated HTML"
+    required: false
+    default: "spek-output/spek.html"
+  title:
+    description: "Page title for the generated HTML"
+    required: false
+    default: "OpenSpec Viewer"
+  spek-version:
+    description: "spek version/ref to use (tag, branch, or commit SHA)"
+    required: false
+    default: "master"
+
+outputs:
+  html-path:
+    description: "Absolute path to the generated HTML file"
+    value: ${{ steps.build.outputs.html-path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout spek
+      uses: actions/checkout@v4
+      with:
+        repository: kewang/spek
+        ref: ${{ inputs.spek-version }}
+        path: .spek-builder
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: .spek-builder/.nvmrc
+
+    - name: Cache spek dependencies
+      uses: actions/cache@v4
+      with:
+        path: .spek-builder/node_modules
+        key: spek-deps-${{ hashFiles('.spek-builder/package-lock.json') }}
+
+    - name: Install spek dependencies
+      shell: bash
+      run: npm ci --prefix .spek-builder
+
+    - name: Build @spek/core
+      shell: bash
+      run: npm run build:core --prefix .spek-builder
+
+    - name: Build OpenSpec static site
+      id: build
+      shell: bash
+      run: |
+        REPO_DIR=$(realpath "${{ inputs.repo-path }}")
+        OUTPUT_DIR=$(dirname "${{ inputs.output-path }}")
+        mkdir -p "$OUTPUT_DIR"
+        OUTPUT=$(realpath "${{ inputs.output-path }}")
+        cd .spek-builder
+        npx tsx scripts/build-demo.ts \
+          --repo-dir "$REPO_DIR" \
+          --output "$OUTPUT" \
+          --title "${{ inputs.title }}"
+        echo "html-path=$OUTPUT" >> "$GITHUB_OUTPUT"
+
+    - name: Cleanup spek builder
+      shell: bash
+      run: rm -rf .spek-builder

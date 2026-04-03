@@ -102,6 +102,76 @@ Tabbed view with Proposal, Design, Tasks, and Specs sections.
 
 ![Search](screenshots/search.png)
 
+## GitHub Action
+
+Use spek as a GitHub Action to automatically build a static OpenSpec site in your CI pipeline.
+
+### Basic Usage
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0  # Recommended for accurate change timestamps
+
+- uses: kewang/spek@master
+  with:
+    title: "My Project - OpenSpec"
+```
+
+### Deploy to GitHub Pages
+
+```yaml
+name: Build OpenSpec Site
+on:
+  push:
+    branches: [main]
+    paths: ["openspec/**"]
+
+permissions:
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: kewang/spek@master
+        with:
+          title: "My Project - OpenSpec"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: spek-output
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
+```
+
+### Inputs
+
+| Input | Description | Default |
+|-------|-------------|---------|
+| `repo-path` | Path to the repo containing `openspec/` | `.` |
+| `output-path` | Output HTML file path | `spek-output/spek.html` |
+| `title` | Page title | `OpenSpec Viewer` |
+| `spek-version` | spek version (tag, branch, or SHA) | `master` |
+
+### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `html-path` | Absolute path to the generated HTML file |
+
+> **Note:** Use `fetch-depth: 0` in your checkout step for accurate change timestamps. Without full git history, timestamps will be unavailable (the build still succeeds).
+
 ## OpenSpec Directory Structure
 
 spek expects the following structure under your repository:

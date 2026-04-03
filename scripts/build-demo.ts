@@ -15,14 +15,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const WEB_DIR = path.join(ROOT, "packages", "web");
 const DIST_DEMO = path.join(WEB_DIR, "dist-demo");
-const OUT_DIR = path.join(ROOT, "docs");
-const OUT_FILE = path.join(OUT_DIR, "demo.html");
+
+// CLI 參數解析
+function getArg(flag: string): string | undefined {
+  const idx = process.argv.indexOf(flag);
+  return idx !== -1 && idx + 1 < process.argv.length ? process.argv[idx + 1] : undefined;
+}
+
+const REPO_DIR = getArg("--repo-dir") ? path.resolve(getArg("--repo-dir")!) : ROOT;
+const OUT_FILE = getArg("--output") ? path.resolve(getArg("--output")!) : path.join(ROOT, "docs", "demo.html");
+const PAGE_TITLE = getArg("--title") || "spek — OpenSpec Viewer Demo";
 
 async function main() {
   // 1. 收集 openspec 資料
   console.log("Collecting openspec data...");
 
-  const scan = await scanOpenSpec(ROOT);
+  const scan = await scanOpenSpec(REPO_DIR);
 
   const overview: OverviewData = {
     specsCount: scan.specs.length,
@@ -47,7 +55,7 @@ async function main() {
   // 讀取所有 spec details
   const specDetails: Record<string, SpecDetail> = {};
   for (const spec of scan.specs) {
-    const detail = await readSpec(ROOT, spec.topic);
+    const detail = await readSpec(REPO_DIR, spec.topic);
     if (detail) {
       specDetails[spec.topic] = detail;
     }
@@ -57,7 +65,7 @@ async function main() {
   const changeDetails: Record<string, ChangeDetail> = {};
   const allChanges = [...scan.activeChanges, ...scan.archivedChanges];
   for (const change of allChanges) {
-    const detail = readChange(ROOT, change.slug);
+    const detail = readChange(REPO_DIR, change.slug);
     if (detail) {
       changeDetails[change.slug] = detail;
     }
@@ -75,7 +83,7 @@ async function main() {
     const detail = specDetails[spec.topic];
     if (!detail?.history?.length) continue;
     for (const entry of detail.history) {
-      const version = readSpecAtChange(ROOT, spec.topic, entry.slug);
+      const version = readSpecAtChange(REPO_DIR, spec.topic, entry.slug);
       if (version) {
         if (!specVersions[spec.topic]) specVersions[spec.topic] = {};
         specVersions[spec.topic][entry.slug] = version.content;
@@ -84,7 +92,7 @@ async function main() {
   }
 
   // 建立 graph 資料
-  const graphData = buildGraphData(ROOT);
+  const graphData = buildGraphData(REPO_DIR);
 
   const demoData = { overview, specs, specDetails, changes, changeDetails, specVersions, graphData };
   const demoDataJson = JSON.stringify(demoData);
@@ -120,7 +128,7 @@ async function main() {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>spek — OpenSpec Viewer Demo</title>
+    <title>${PAGE_TITLE}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400..800&display=swap" rel="stylesheet" />${styleBlock}
@@ -133,7 +141,7 @@ async function main() {
 </html>`;
 
   // 4. 寫入最終檔案
-  fs.mkdirSync(OUT_DIR, { recursive: true });
+  fs.mkdirSync(path.dirname(OUT_FILE), { recursive: true });
   fs.writeFileSync(OUT_FILE, html, "utf-8");
 
   const sizeKB = (Buffer.byteLength(html) / 1024).toFixed(1);
