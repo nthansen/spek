@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0
+
+- First stable release
+- Publish GitHub Action to Marketplace — use `kewang/spek@v1` in your workflows
+- Update README examples to reference `@v1` stable tag
+
 ## 0.7.9
 
 - Remove demo auto-rebuild GitHub Action — demo rebuild is now handled exclusively by the release workflow
