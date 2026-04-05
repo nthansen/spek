@@ -23,11 +23,10 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <p><b>1.0.0</b></p>
+        <p><b>1.0.1</b></p>
         <ul>
-            <li>First stable release</li>
-            <li>Publish GitHub Action to Marketplace — use kewang/spek@v1 in your workflows</li>
-            <li>Update README examples to reference @v1 stable tag</li>
+            <li>Add SVG badge generation (specs count, open changes, tasks status) to GitHub Action and release workflow</li>
+            <li>Fix CI publish triggers to only match semver tags (avoid triggering on v1 floating tag)</li>
         </ul>
     ]]></change-notes>
 

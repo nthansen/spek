@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Add SVG badge generation (specs count, open changes, tasks status) to GitHub Action and release workflow
+- Fix CI publish triggers to only match semver tags (avoid triggering on v1 floating tag)
+
 ## 1.0.0
 
 - First stable release
