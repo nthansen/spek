@@ -71,7 +71,7 @@ async function main() {
     }
   }
 
-  const specs: SpecInfo[] = scan.specs.map((s) => ({ topic: s.topic, path: s.path }));
+  const specs: SpecInfo[] = scan.specs;
   const changes: ChangesData = {
     active: scan.activeChanges,
     archived: scan.archivedChanges,
