@@ -1,10 +1,14 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
+import type { HistoryEntry } from "@spek/core";
+import { extractHeadings } from "@spek/core/headings";
 import { useSpec, useSpecAtChange } from "../hooks/useOpenSpec";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { SpecDiffViewer } from "../components/SpecDiffViewer";
+import { SpecToc } from "../components/SpecToc";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
-import type { HistoryEntry } from "@spek/core";
+
+const TOC_MIN_HEADINGS = 3;
 
 function DiffView({ topic, entry, currentContent, onClose }: {
   topic: string;
@@ -41,12 +45,49 @@ function DiffView({ topic, entry, currentContent, onClose }: {
 
 export function SpecDetail() {
   const { topic } = useParams<{ topic: string }>();
+  const location = useLocation();
   const { data, loading, error } = useSpec(topic ?? "");
   const [compareEntry, setCompareEntry] = useState<HistoryEntry | null>(null);
+
+  const headings = useMemo(
+    () => (data ? extractHeadings(data.content) : []),
+    [data],
+  );
+
+  // Hash 錨點：在內容就緒 + hash 變更時，捲動到對應 heading
+  useEffect(() => {
+    if (!data || compareEntry) return;
+    const hash = location.hash.replace(/^#/, "");
+    if (!hash) return;
+
+    const HEADER_OFFSET = 80;
+    let attempts = 0;
+    let rafId: number | null = null;
+
+    const tryScroll = () => {
+      const el = document.getElementById(hash);
+      if (el) {
+        const top = el.getBoundingClientRect().top + window.scrollY - HEADER_OFFSET;
+        window.scrollTo({ top, behavior: "smooth" });
+        return;
+      }
+      // Markdown 尚未 commit 時 retry 幾次（最多 ~300ms）
+      if (attempts++ < 10) {
+        rafId = requestAnimationFrame(tryScroll);
+      }
+    };
+
+    rafId = requestAnimationFrame(tryScroll);
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [data, location.hash, compareEntry]);
 
   if (loading) return <p className="text-text-muted">Loading...</p>;
   if (error) return <p className="text-red-400">Error: {error}</p>;
   if (!data) return <p className="text-text-muted">Spec not found</p>;
+
+  const showToc = !compareEntry && headings.length >= TOC_MIN_HEADINGS;
 
   return (
     <div className="space-y-6">
@@ -57,73 +98,83 @@ export function SpecDetail() {
         <h1 className="text-2xl font-bold mt-2">{data.topic}</h1>
       </div>
 
-      {compareEntry ? (
-        <DiffView
-          topic={data.topic}
-          entry={compareEntry}
-          currentContent={data.content}
-          onClose={() => setCompareEntry(null)}
-        />
-      ) : (
-        <MarkdownRenderer content={data.content} />
-      )}
+      <div className={showToc ? "xl:grid xl:grid-cols-[minmax(0,1fr)_16rem] xl:gap-8" : ""}>
+        <div className="min-w-0 space-y-6">
+          {compareEntry ? (
+            <DiffView
+              topic={data.topic}
+              entry={compareEntry}
+              currentContent={data.content}
+              onClose={() => setCompareEntry(null)}
+            />
+          ) : (
+            <MarkdownRenderer content={data.content} />
+          )}
 
-      <section>
-        <h2 className="text-lg font-semibold mb-3">History</h2>
-        {data.history.length === 0 ? (
-          <p className="text-text-muted text-sm">No changes have affected this spec</p>
-        ) : (
-          <div className="relative pl-6">
-            {/* 垂直時間線 */}
-            <div className="absolute left-2 top-1 bottom-1 w-px bg-border" />
-            <div className="space-y-4">
-              {data.history.map((entry) => (
-                <div
-                  key={entry.slug}
-                  className="relative hover:bg-bg-secondary rounded p-2 transition-colors"
-                >
-                  {/* 時間線圓點 */}
-                  <div className="absolute -left-4 top-3.5 w-2.5 h-2.5 rounded-full border-2 border-accent bg-bg-primary" />
-                  <div className="flex items-center gap-2 mb-0.5">
-                    {(entry.timestamp || entry.date) && (
-                      <span className="text-text-muted text-xs font-mono" title={entry.timestamp || undefined}>
-                        {entry.timestamp
-                          ? formatRelativeTime(entry.timestamp)
-                          : entry.date}
-                      </span>
-                    )}
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${
-                      entry.status === "active"
-                        ? "bg-green-400/10 text-green-400"
-                        : "bg-text-muted/10 text-text-muted"
-                    }`}>
-                      {entry.status}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Link
-                      to={`/changes/${entry.slug}`}
-                      className="text-sm text-accent hover:underline"
+          <section>
+            <h2 className="text-lg font-semibold mb-3">History</h2>
+            {data.history.length === 0 ? (
+              <p className="text-text-muted text-sm">No changes have affected this spec</p>
+            ) : (
+              <div className="relative pl-6">
+                {/* 垂直時間線 */}
+                <div className="absolute left-2 top-1 bottom-1 w-px bg-border" />
+                <div className="space-y-4">
+                  {data.history.map((entry) => (
+                    <div
+                      key={entry.slug}
+                      className="relative hover:bg-bg-secondary rounded p-2 transition-colors"
                     >
-                      {entry.description}
-                    </Link>
-                    <button
-                      onClick={() => setCompareEntry(compareEntry?.slug === entry.slug ? null : entry)}
-                      className={`text-xs px-2 py-0.5 rounded border transition-colors ${
-                        compareEntry?.slug === entry.slug
-                          ? "border-accent text-accent bg-accent/10"
-                          : "border-border text-text-muted hover:text-accent hover:border-accent"
-                      }`}
-                    >
-                      {compareEntry?.slug === entry.slug ? "Comparing" : "Compare"}
-                    </button>
-                  </div>
+                      {/* 時間線圓點 */}
+                      <div className="absolute -left-4 top-3.5 w-2.5 h-2.5 rounded-full border-2 border-accent bg-bg-primary" />
+                      <div className="flex items-center gap-2 mb-0.5">
+                        {(entry.timestamp || entry.date) && (
+                          <span className="text-text-muted text-xs font-mono" title={entry.timestamp || undefined}>
+                            {entry.timestamp
+                              ? formatRelativeTime(entry.timestamp)
+                              : entry.date}
+                          </span>
+                        )}
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          entry.status === "active"
+                            ? "bg-green-400/10 text-green-400"
+                            : "bg-text-muted/10 text-text-muted"
+                        }`}>
+                          {entry.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Link
+                          to={`/changes/${entry.slug}`}
+                          className="text-sm text-accent hover:underline"
+                        >
+                          {entry.description}
+                        </Link>
+                        <button
+                          onClick={() => setCompareEntry(compareEntry?.slug === entry.slug ? null : entry)}
+                          className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                            compareEntry?.slug === entry.slug
+                              ? "border-accent text-accent bg-accent/10"
+                              : "border-border text-text-muted hover:text-accent hover:border-accent"
+                          }`}
+                        >
+                          {compareEntry?.slug === entry.slug ? "Comparing" : "Compare"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {showToc && (
+          <aside className="hidden xl:block">
+            <SpecToc headings={headings} />
+          </aside>
         )}
-      </section>
+      </div>
     </div>
   );
 }

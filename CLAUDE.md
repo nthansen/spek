@@ -58,6 +58,7 @@ npm run build:vscode     # Build VS Code extension
 npm run build:demo       # Build 獨立 demo HTML（docs/demo.html）
 npm run build:intellij   # Build IntelliJ webview assets
 npm run type-check       # TypeScript type check
+npm run test -w @spek/core  # 跑 @spek/core 的 unit test（node:test + tsx）
 ```
 
 **Web 開發**：`npm run dev` 後存取 http://localhost:5173
@@ -85,7 +86,8 @@ cd packages/intellij && ./gradlew buildPlugin
 - `readSpecAtChange(basePath, topic, slug)` — 讀取特定 change 中的 spec 歷史版本
 - `buildGraphData(basePath)` — 建立 spec-change 關聯圖資料
 - `parseTasks(content)` — 解析 tasks.md checkbox
-- 共用型別：`OverviewData`, `SpecInfo`, `ChangeInfo`, `ChangeDetail`, `GraphData` 等
+- `extractHeadings(content)` / `slugifyHeading(text)` — 解析 markdown h2/h3 並產生穩定 slug，給 spec detail TOC 與 VS Code sidebar 共用（從 `@spek/core/headings` subpath 引入，避免 webview bundle 把 server-only 模組打包進去）
+- 共用型別：`OverviewData`, `SpecInfo`, `ChangeInfo`, `ChangeDetail`, `GraphData`, `Heading` 等
 
 ### API Adapter Pattern
 前端透過 `ApiAdapter` 介面抽象通訊層：
@@ -109,10 +111,11 @@ GET /api/openspec/search?dir=...&q=...   # 全文搜尋
 ```
 
 ### VS Code Extension
-- `spek.open` / `spek.search` commands
+- `spek.open` / `spek.search` / `spek.navigateTo` commands（`spek.navigateTo` 接受含 `#hash` 的 route path）
 - `workspaceContains:openspec/config.yaml` activation
 - Webview Panel 載入 IIFE-bundled React app
 - extension host 直接呼叫 `@spek/core` 處理 API requests
+- Sidebar Specs TreeView 每個 spec 項目可展開，子節點為該 spec 的 h2/h3 heading，點擊跳到 webview 對應錨點
 
 ### IntelliJ Plugin
 - Kotlin 開發，使用 IntelliJ Platform SDK

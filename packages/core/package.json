@@ -9,11 +9,16 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./headings": {
+      "import": "./dist/headings.js",
+      "types": "./dist/headings.d.ts"
     }
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "test": "node --import tsx --test src/*.test.ts"
   },
   "dependencies": {
     "fuse.js": "^7.0.0",

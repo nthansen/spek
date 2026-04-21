@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add table-of-contents (TOC) sidebar to spec detail pages — sticky navigation lists all `h2`/`h3` headings, with scrollspy highlighting and smooth scrolling on click
+- Support URL hash anchors on spec detail pages (e.g., `/specs/foo#requirement-bar` scrolls to that heading)
+- Expand spec items in the VS Code sidebar to reveal their headings as child nodes; clicking a heading opens the webview at the corresponding section
+- Add `extractHeadings` and `slugifyHeading` utilities to `@spek/core` for shared heading parsing across web and extension hosts
+
 ## 1.0.2
 
 - Unify date format to YYYY-MM-DD across all pages (Dashboard, ChangeList, SpecDetail)

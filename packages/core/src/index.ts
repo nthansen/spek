@@ -13,6 +13,8 @@ export {
   resyncTimestamps,
   buildChangeTimestamps,
 } from "./git-cache.js";
+export { extractHeadings, slugifyHeading } from "./headings.js";
+export type { Heading } from "./headings.js";
 
 export type {
   TaskItem,

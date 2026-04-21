@@ -1,24 +1,42 @@
 import * as vscode from "vscode";
-import { scanOpenSpec } from "@spek/core";
-import type { SpecInfo, ChangeInfo } from "@spek/core";
+import { scanOpenSpec, readSpec, extractHeadings } from "@spek/core";
+import type { SpecInfo, ChangeInfo, Heading } from "@spek/core";
 
 // --- Specs TreeView ---
 
-export class SpecsTreeProvider implements vscode.TreeDataProvider<SpecTreeItem> {
+type SpecsTreeNode = SpecTreeItem | SpecHeadingItem;
+
+export class SpecsTreeProvider implements vscode.TreeDataProvider<SpecsTreeNode> {
   private _onDidChangeTreeData = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   constructor(private readonly workspacePath: string) {}
 
+  // refresh() 重發 onDidChangeTreeData，VS Code 會對目前展開節點重新呼叫 getChildren，
+  // 因此每次展開時 readSpec 會讀取最新檔案內容，不需要額外 cache 失效機制。
   refresh(): void {
     this._onDidChangeTreeData.fire();
   }
 
-  getTreeItem(element: SpecTreeItem): vscode.TreeItem {
+  getTreeItem(element: SpecsTreeNode): vscode.TreeItem {
     return element;
   }
 
-  async getChildren(): Promise<SpecTreeItem[]> {
+  async getChildren(element?: SpecsTreeNode): Promise<SpecsTreeNode[]> {
+    if (element instanceof SpecTreeItem) {
+      try {
+        const detail = await readSpec(this.workspacePath, element.topic);
+        const headings = extractHeadings(detail.content);
+        return headings.map((h) => new SpecHeadingItem(element.topic, h));
+      } catch {
+        return [];
+      }
+    }
+
+    if (element instanceof SpecHeadingItem) {
+      return [];
+    }
+
     try {
       const scan = await scanOpenSpec(this.workspacePath);
       return scan.specs
@@ -31,14 +49,37 @@ export class SpecsTreeProvider implements vscode.TreeDataProvider<SpecTreeItem> 
 }
 
 class SpecTreeItem extends vscode.TreeItem {
+  readonly topic: string;
+
   constructor(spec: SpecInfo) {
-    super(spec.topic, vscode.TreeItemCollapsibleState.None);
+    super(spec.topic, vscode.TreeItemCollapsibleState.Collapsed);
+    this.topic = spec.topic;
     this.tooltip = spec.topic;
     this.iconPath = new vscode.ThemeIcon("file-text");
+    // 點擊 spec 本體仍開啟完整 spec 頁面；展開 chevron 會列出 heading 子節點
     this.command = {
       command: "spek.navigateTo",
       title: "Open Spec",
       arguments: [`/specs/${spec.topic}`],
+    };
+  }
+}
+
+class SpecHeadingItem extends vscode.TreeItem {
+  constructor(topic: string, heading: Heading) {
+    // h3 用 description 欄位顯示層級標記，並配合不同 icon 以視覺區分 h2/h3
+    super(heading.text, vscode.TreeItemCollapsibleState.None);
+    this.tooltip = heading.text;
+    this.iconPath = new vscode.ThemeIcon(
+      heading.level === 2 ? "symbol-string" : "symbol-field",
+    );
+    if (heading.level === 3) {
+      this.description = "h3";
+    }
+    this.command = {
+      command: "spek.navigateTo",
+      title: "Open Heading",
+      arguments: [`/specs/${topic}#${heading.slug}`],
     };
   }
 }

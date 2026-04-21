@@ -1,7 +1,46 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link } from "react-router-dom";
-import type { ReactNode } from "react";
+import { type ReactNode } from "react";
+import { slugifyHeading } from "@spek/core/headings";
+
+// rehype plugin：為 h2/h3 加上 deterministic id（與 extractHeadings 的 slug 演算法一致）。
+// 在 hast 階段處理可避免 React Strict Mode 的 double render 讓 counter 翻倍。
+type HastNode = {
+  type: string;
+  tagName?: string;
+  value?: string;
+  properties?: Record<string, unknown>;
+  children?: HastNode[];
+};
+
+function hastToText(node: HastNode): string {
+  if (node.type === "text") return node.value ?? "";
+  if (node.children) return node.children.map(hastToText).join("");
+  return "";
+}
+
+function rehypeSpekHeadingIds() {
+  return (tree: HastNode) => {
+    const counter = new Map<string, number>();
+    const walk = (node: HastNode) => {
+      if (
+        node.type === "element" &&
+        (node.tagName === "h2" || node.tagName === "h3")
+      ) {
+        const base = slugifyHeading(hastToText(node).trim());
+        if (base) {
+          const n = counter.get(base) ?? 0;
+          counter.set(base, n + 1);
+          node.properties = node.properties ?? {};
+          node.properties.id = n === 0 ? base : `${base}-${n + 1}`;
+        }
+      }
+      if (node.children) for (const child of node.children) walk(child);
+    };
+    walk(tree);
+  };
+}
 
 interface MarkdownRendererProps {
   content: string;
@@ -72,6 +111,7 @@ export function MarkdownRenderer({ content, specTopics }: MarkdownRendererProps)
     <div className="markdown-body">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeSpekHeadingIds]}
         components={{
           // 段落：套用 BDD 高亮
           p({ children }) {
@@ -85,11 +125,11 @@ export function MarkdownRenderer({ content, specTopics }: MarkdownRendererProps)
           h1({ children }) {
             return <h1 className="text-2xl font-bold mt-6 mb-4 text-text-primary">{children}</h1>;
           },
-          h2({ children }) {
-            return <h2 className="text-xl font-bold mt-6 mb-3 text-text-primary border-b border-border pb-2">{children}</h2>;
+          h2({ id, children }) {
+            return <h2 id={id} className="text-xl font-bold mt-6 mb-3 text-text-primary border-b border-border pb-2 scroll-mt-20">{children}</h2>;
           },
-          h3({ children }) {
-            return <h3 className="text-lg font-semibold mt-5 mb-2 text-text-primary">{children}</h3>;
+          h3({ id, children }) {
+            return <h3 id={id} className="text-lg font-semibold mt-5 mb-2 text-text-primary scroll-mt-20">{children}</h3>;
           },
           h4({ children }) {
             return <h4 className="text-base font-semibold mt-4 mb-2 text-text-secondary">{children}</h4>;

@@ -31,7 +31,8 @@ function saveRecentPath(newPath: string) {
 }
 
 export function RepoProvider({ children }: { children: ReactNode }) {
-  const [repoPath, setRepoPathState] = useState("");
+  // 預設使用最近一次選過的 repo，使重整或直接貼 URL 時不被踢回選擇頁
+  const [repoPath, setRepoPathState] = useState(() => loadRecentPaths()[0] ?? "");
   const [recentPaths, setRecentPaths] = useState(loadRecentPaths);
 
   const setRepoPath = useCallback((path: string) => {
