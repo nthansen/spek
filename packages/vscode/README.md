@@ -4,9 +4,10 @@ Browse [OpenSpec](https://github.com/Fission-AI/OpenSpec) specs and changes dire
 
 ## Features
 
-- **Dashboard** — Overview of specs count, changes count, and task completion rates
+- **Dashboard** — Overview of specs count, changes count, task completion rates, plus lifecycle stats (avg archived lifecycle, stale active changes)
 - **Specs Browser** — Alphabetical listing with detail view and revision history
-- **Changes Timeline** — Active and archived changes with tabbed views (Proposal / Design / Tasks / Specs)
+- **Changes Browser** — Active and archived changes with tabbed views (Proposal / Design / Tasks / Specs); each row surfaces creation/archive dates and lifecycle duration
+- **Timeline** — Horizontal Gantt-style chart of every change's lifecycle, with optional spec-topic grouping, status filters, and an auto-scaling time axis
 - **BDD Syntax Highlighting** — Visual distinction for WHEN/GIVEN, THEN, AND, MUST/SHALL keywords
 - **Task Progress** — Checkbox parsing with section-grouped progress bars
 - **Full-text Search** — Search across all specs and changes

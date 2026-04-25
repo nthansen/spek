@@ -32,9 +32,10 @@
 
 ## 功能特色
 
-- **Dashboard 總覽** — Specs 數量、Changes 數量、任務完成率一覽
+- **Dashboard 總覽** — Specs 數量、Changes 數量、任務完成率一覽，加上生命週期統計（已封存 change 平均週期、超過 30 天未封存的 stale active）
 - **Specs 瀏覽** — 依字母排序的主題列表，含詳細內容與修訂歷史
-- **Changes 時間線** — 進行中與已封存的 changes，分頁顯示 Proposal / Design / Tasks / Specs
+- **Changes 瀏覽** — 進行中與已封存的 changes，分頁顯示 Proposal / Design / Tasks / Specs；每筆 row 顯示建立日期、封存日期與生命週期天數
+- **Timeline 時間軸** — 用水平 Gantt 風格圖呈現所有 change 的生命週期，可依 spec topic 分群、依狀態過濾，時間軸刻度依跨度自動切換
 - **BDD 語法高亮** — WHEN/GIVEN（藍）、THEN（綠）、AND（灰）、MUST/SHALL（紅）關鍵字上色
 - **任務進度** — 解析 checkbox，依章節分組顯示進度條
 - **全文搜尋** — `Cmd+K` / `Ctrl+K` 跨 specs 與 changes 搜尋
@@ -93,10 +94,15 @@ BDD 關鍵字上色 — WHEN/GIVEN（藍）、THEN（綠）、AND（灰）、MUS
 
 ![Spec 詳細](screenshots/spec-detail.png)
 
-### Changes 時間線
-進行中與已封存的 changes 依時間排列。
+### Changes 瀏覽
+進行中與已封存的 changes 依時間排列，每筆 row 顯示生命週期天數。
 
 ![Changes 列表](screenshots/changes-list.png)
+
+### Timeline 時間軸
+水平 Gantt 風格呈現所有 change 的生命週期 — active 的 bar 延伸到今天，archived 為固定區段。
+
+![Timeline](screenshots/timeline.png)
 
 ### Change 詳細內容
 分頁顯示 Proposal、Design、Tasks、Specs。

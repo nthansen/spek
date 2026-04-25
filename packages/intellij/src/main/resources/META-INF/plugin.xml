@@ -8,7 +8,8 @@
         <p><b>Features:</b></p>
         <ul>
             <li><b>Specs Browser</b> — Browse spec documents with BDD syntax highlighting (WHEN/GIVEN, THEN, AND, MUST/SHALL)</li>
-            <li><b>Changes Timeline</b> — View changes with tabbed views for Proposal, Design, Tasks, and Specs</li>
+            <li><b>Changes Browser</b> — View changes with tabbed views for Proposal, Design, Tasks, and Specs; rows surface creation/archive dates and lifecycle duration</li>
+            <li><b>Timeline</b> — Horizontal Gantt-style chart of every change's lifecycle, with optional spec-topic grouping and an auto-scaling time axis</li>
             <li><b>Task Progress</b> — Track task completion with section-grouped progress bars</li>
             <li><b>Graph View</b> — Interactive force-directed graph showing spec-change relationships</li>
             <li><b>Full-text Search</b> — Search across all specs and changes</li>
@@ -23,14 +24,16 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <p><b>1.1.0</b></p>
+        <p><b>1.2.0</b></p>
         <ul>
-            <li>Add table-of-contents (TOC) sidebar to spec detail pages — sticky navigation lists all h2/h3 headings, with scrollspy highlighting and smooth scrolling on click</li>
-            <li>Add TOC sidebar to change detail pages for the Proposal, Design, and Specs tabs (Tasks tab excluded); TOC updates when switching tabs</li>
-            <li>Persist the active tab in the change detail URL (?tab=&lt;id&gt;) and support deep links with both tab + hash (e.g., ?tab=design#decision-1)</li>
-            <li>Specs tab: prefix each delta spec's heading ids with &lt;topic&gt;-- so multiple specs with the same heading text no longer collide</li>
-            <li>Support URL hash anchors on spec detail pages (e.g., /specs/foo#requirement-bar scrolls to that heading)</li>
-            <li>Add extractHeadings and slugifyHeading utilities to @spek/core for shared heading parsing across web and extension hosts</li>
+            <li>Add /timeline page: horizontal Gantt-style chart of every change's lifecycle — active bars extend to today with an arrow, archived bars render as fixed segments</li>
+            <li>Timeline supports an optional "Group by topic" toggle and "Hide active / Hide archived" filter chips, plus an auto-scaling time axis (daily / weekly / monthly / quarterly ticks based on span)</li>
+            <li>Read created: from .openspec.yaml and derive archivedDate from archive folder name; surface lifecycle info in ChangeInfo / ChangeDetail (server payload adds two backwards-compatible fields)</li>
+            <li>ChangeList row shows "Created Apr 20 · 5d ago" for active changes and "Created Feb 14 → Archived Feb 22 · 8d" for archived ones</li>
+            <li>ChangeDetail header gains a lifecycle banner (e.g., "Created 2026-02-14 · Archived 2026-02-22 (8 days)" or "Active for 5 days")</li>
+            <li>Dashboard adds two stats cards: Avg lifecycle (archived) and Stale active (&gt;30d)</li>
+            <li>VS Code sidebar shows lifecycle days in change descriptions and includes the created date in tooltips</li>
+            <li>New @spek/web test runner (npm test -w @spek/web) covers the timeline scale and grouping helpers</li>
         </ul>
     ]]></change-notes>
 

@@ -32,9 +32,10 @@ All are **read-only** and **local-only**. No server deployment, no authenticatio
 
 ## Features
 
-- **Dashboard** — Overview of specs count, changes count, and task completion rates
+- **Dashboard** — Overview of specs count, changes count, task completion rates, plus lifecycle stats (avg archived lifecycle, stale active changes)
 - **Specs Browser** — Alphabetical listing with detail view and revision history
-- **Changes Timeline** — Active and archived changes with tabbed views (Proposal / Design / Tasks / Specs)
+- **Changes Browser** — Active and archived changes with tabbed views (Proposal / Design / Tasks / Specs); each row surfaces creation and archive dates plus lifecycle duration
+- **Timeline** — Horizontal Gantt-style chart of every change's lifecycle, with optional spec-topic grouping, status filters, and an auto-scaling time axis
 - **BDD Syntax Highlighting** — Visual distinction for WHEN/GIVEN, THEN, AND, MUST/SHALL keywords
 - **Task Progress** — Checkbox parsing with section-grouped progress bars
 - **Full-text Search** — `Cmd+K` / `Ctrl+K` to search across all specs and changes
@@ -93,10 +94,15 @@ Visual distinction for BDD keywords — WHEN/GIVEN (blue), THEN (green), AND (gr
 
 ![Spec Detail](screenshots/spec-detail.png)
 
-### Changes Timeline
-Active and archived changes listed chronologically.
+### Changes Browser
+Active and archived changes listed chronologically, with lifecycle duration on every row.
 
 ![Changes List](screenshots/changes-list.png)
+
+### Timeline
+Horizontal Gantt-style view of every change's lifecycle — active bars extend to today, archived ones render as fixed segments.
+
+![Timeline](screenshots/timeline.png)
 
 ### Change Detail
 Tabbed view with Proposal, Design, Tasks, and Specs sections.
