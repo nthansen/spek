@@ -81,9 +81,9 @@ OpenSpec 工作流產出的每個 change 都會在 `.openspec.yaml` frontmatter 
 
 每個編號 = 一個 OpenSpec change。
 
-1. **Phase 1**：Foundation A + P0 #1~#4（一次 ship 完整生命週期體驗，含 web + vscode）
+1. **Phase 1**：Foundation A + P0 #1~#4（一次 ship 完整生命週期體驗，含 web + vscode）— ✅ archived `2026-04-25-add-change-lifecycle-foundation-and-p0`
 2. **Phase 2**：P1 #5 + #6（Stale clickable list + ChangeList sort，共用 Phase 1 資料）
-3. **Phase 3**：P1 #7 `/timeline` 新頁面（最大視覺亮點，獨立完成）
+3. **Phase 3**：P1 #7 `/timeline` 新頁面（最大視覺亮點，獨立完成）— ✅ archived `2026-04-25-add-timeline-page`
 4. **Phase 4**：P1 #9 IntelliJ scanner + sidebar 同步
 5. **Phase 5**：P1 #8 SpecDetail 對齊 change 時間
 6. P2 視回饋

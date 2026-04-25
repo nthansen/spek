@@ -1,0 +1,76 @@
+import { formatTickLabel, type TickSet } from "./scale";
+
+interface TimelineAxisProps {
+  ticks: TickSet;
+  scale: (date: string) => number;
+  spanDays: number;
+  axisHeight: number;
+  chartHeight: number; // 給 minor grid line 從上畫到下
+  today: string;
+}
+
+// 上方時間軸：major tick (label + 全長 grid line)、minor tick (淡 grid line)、today 虛線
+export function TimelineAxis({ ticks, scale, spanDays, axisHeight, chartHeight, today }: TimelineAxisProps) {
+  const todayX = scale(today);
+  return (
+    <g>
+      {/* minor grid lines */}
+      {ticks.minor.map((iso) => (
+        <line
+          key={`minor-${iso}`}
+          x1={scale(iso)}
+          x2={scale(iso)}
+          y1={axisHeight}
+          y2={chartHeight}
+          stroke="var(--color-border)"
+          strokeOpacity={0.4}
+          strokeWidth={1}
+        />
+      ))}
+      {/* major grid lines */}
+      {ticks.major.map((iso) => (
+        <line
+          key={`major-line-${iso}`}
+          x1={scale(iso)}
+          x2={scale(iso)}
+          y1={axisHeight - 4}
+          y2={chartHeight}
+          stroke="var(--color-border)"
+          strokeWidth={1}
+        />
+      ))}
+      {/* major tick labels */}
+      {ticks.major.map((iso) => (
+        <text
+          key={`major-label-${iso}`}
+          x={scale(iso) + 4}
+          y={axisHeight - 8}
+          fontSize={11}
+          fill="var(--color-text-muted)"
+        >
+          {formatTickLabel(iso, spanDays)}
+        </text>
+      ))}
+      {/* today line */}
+      <line
+        x1={todayX}
+        x2={todayX}
+        y1={axisHeight - 8}
+        y2={chartHeight}
+        stroke="var(--color-accent)"
+        strokeOpacity={0.5}
+        strokeWidth={1.5}
+        strokeDasharray="4 3"
+      />
+      <text
+        x={todayX + 4}
+        y={axisHeight - 22}
+        fontSize={10}
+        fill="var(--color-accent)"
+        fillOpacity={0.8}
+      >
+        today
+      </text>
+    </g>
+  );
+}

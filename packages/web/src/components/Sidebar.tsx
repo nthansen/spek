@@ -39,6 +39,16 @@ const links = [
       </svg>
     ),
   },
+  {
+    to: "/timeline",
+    label: "Timeline",
+    icon: (
+      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h10M4 12h16M4 17h7" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4v16" />
+      </svg>
+    ),
+  },
 ];
 
 interface SidebarProps {

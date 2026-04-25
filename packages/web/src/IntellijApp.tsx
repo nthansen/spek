@@ -12,6 +12,7 @@ import { SpecDetail } from "./pages/SpecDetail";
 import { ChangeList } from "./pages/ChangeList";
 import { ChangeDetail } from "./pages/ChangeDetail";
 import { GraphView } from "./pages/GraphView";
+import { TimelinePage } from "./pages/TimelinePage";
 
 // 從 URL query params 讀取 config（由 IntelliJ plugin 注入）
 function getUrlParam(name: string): string {
@@ -40,6 +41,7 @@ const router = createMemoryRouter(
         { path: "/changes", element: <ChangeList /> },
         { path: "/changes/:slug", element: <ChangeDetail /> },
         { path: "/graph", element: <GraphView /> },
+        { path: "/timeline", element: <TimelinePage /> },
       ],
     },
   ],
