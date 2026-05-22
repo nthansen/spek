@@ -28,7 +28,9 @@ export function ChangeDetail() {
   const { slug } = useParams<{ slug: string }>();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data, loading, error } = useChange(slug ?? "");
+  // 聚合視圖下，wt 指定要從哪個 worktree 讀這個 change（同名 slug 辨識用）
+  const wt = searchParams.get("wt") ?? undefined;
+  const { data, loading, error } = useChange(slug ?? "", wt);
   const { data: specsData } = useSpecs();
   const specTopics = specsData?.map((s) => s.topic) ?? [];
 
@@ -50,9 +52,12 @@ export function ChangeDetail() {
   // Tab 切換時：URL 只保留 ?tab=<id>，同步清掉 hash（不同 tab 的舊 heading 已無意義），
   // 並把 window 捲回頂端，避免停留在上一個 tab 的視窗位置。
   const handleTabChange = (id: string) => {
-    setSearchParams({ tab: id }, { replace: false });
+    const next: Record<string, string> = { tab: id };
+    if (wt) next.wt = wt;
+    setSearchParams(next, { replace: false });
     if (location.hash) {
-      window.history.replaceState(null, "", `${location.pathname}?tab=${id}`);
+      const wtq = wt ? `&wt=${encodeURIComponent(wt)}` : "";
+      window.history.replaceState(null, "", `${location.pathname}?tab=${id}${wtq}`);
     }
     window.scrollTo(0, 0);
   };

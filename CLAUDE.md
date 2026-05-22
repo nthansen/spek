@@ -80,14 +80,17 @@ cd packages/intellij && ./gradlew buildPlugin
 
 ### Core Module (`@spek/core`)
 純函式 + 型別定義，可被 web server 和 extension host 共用：
-- `scanOpenSpec(basePath)` — 掃描 OpenSpec 目錄結構
+- `scanOpenSpec(basePath)` — 掃描單一目錄的 OpenSpec 結構
+- `scanOpenSpecAggregated(basePath, { aggregate })` — 跨 worktree 聚合掃描：探索同 repo 全部 worktree，active changes 聯集並附來源、archived 依 slug 去重、specs 取主 worktree；單一 worktree / 非 git / 關閉聚合時等同 `scanOpenSpec`
 - `readSpec(basePath, topic)` — 讀取單一 spec（含歷史）
 - `readChange(basePath, slug)` — 讀取單一 change
 - `readSpecAtChange(basePath, topic, slug)` — 讀取特定 change 中的 spec 歷史版本
 - `buildGraphData(basePath)` — 建立 spec-change 關聯圖資料
+- `buildGraphDataAggregated(basePath, { aggregate })` — 跨 worktree 聚合的關聯圖（change 節點 id 以 `change:<worktreeKey>:<slug>` 命名避免碰撞）
+- `listWorktrees(basePath)` — 以 `git worktree list --porcelain` 列出同 repo 全部 worktree；非 git / 無 `git` 時回 `[]`
 - `parseTasks(content)` — 解析 tasks.md checkbox
 - `extractHeadings(content)` / `slugifyHeading(text)` — 解析 markdown h2/h3 並產生穩定 slug，給 spec detail TOC 與 VS Code sidebar 共用（從 `@spek/core/headings` subpath 引入，避免 webview bundle 把 server-only 模組打包進去）
-- 共用型別：`OverviewData`, `SpecInfo`, `ChangeInfo`, `ChangeDetail`, `GraphData`, `Heading` 等
+- 共用型別：`OverviewData`, `SpecInfo`, `ChangeInfo`, `ChangeDetail`, `GraphData`, `WorktreeInfo`, `WorktreeSource`, `Heading` 等
 
 ### API Adapter Pattern
 前端透過 `ApiAdapter` 介面抽象通訊層：
@@ -97,16 +100,19 @@ cd packages/intellij && ./gradlew buildPlugin
 - 透過 `ApiAdapterContext` (React Context) 注入
 
 ### API endpoints（Web 版，所有 openspec routes 接受 `dir` query param）
+
+`/changes`、`/overview`、`/graph`、`/watch` 另接受 `aggregate` query param（預設 true，跨 worktree 聚合；`aggregate=false` 關閉）。`/changes/:slug` 接受 `wt`（worktree key）以辨識同名 slug 的來源 worktree。
+
 ```
 GET /api/fs/browse?path=...              # 目錄瀏覽
 GET /api/fs/detect?path=...              # 偵測 openspec/ 存在
-GET /api/openspec/overview?dir=...       # 總覽統計
+GET /api/openspec/overview?dir=...&aggregate=    # 總覽統計
 GET /api/openspec/specs?dir=...          # Spec 列表
 GET /api/openspec/specs/:topic?dir=...   # 單一 spec 內容
 GET /api/openspec/specs/:topic/at/:slug?dir=...  # Spec 歷史版本內容（diff 用）
-GET /api/openspec/changes?dir=...        # Changes 列表
-GET /api/openspec/changes/:slug?dir=...  # 單一 change 內容
-GET /api/openspec/graph?dir=...          # Spec-Change 關聯圖資料
+GET /api/openspec/changes?dir=...&aggregate=     # Changes 列表（聚合時回傳含 worktrees / aggregated）
+GET /api/openspec/changes/:slug?dir=...&wt=      # 單一 change 內容（wt 指定來源 worktree）
+GET /api/openspec/graph?dir=...&aggregate=       # Spec-Change 關聯圖資料
 GET /api/openspec/search?dir=...&q=...   # 全文搜尋
 ```
 

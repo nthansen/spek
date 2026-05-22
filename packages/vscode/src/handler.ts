@@ -4,11 +4,14 @@ import * as os from "os";
 import Fuse from "fuse.js";
 import {
   scanOpenSpec,
+  scanOpenSpecAggregated,
   readSpec,
   readChange,
   readSpecAtChange,
   resyncTimestamps,
-  buildGraphData,
+  buildGraphDataAggregated,
+  listWorktrees,
+  toWorktreeSource,
 } from "@spek/core";
 
 export class MessageHandler {
@@ -17,7 +20,7 @@ export class MessageHandler {
   async handle(method: string, params?: Record<string, unknown>): Promise<unknown> {
     switch (method) {
       case "getOverview":
-        return this.getOverview();
+        return this.getOverview(params?.aggregate as boolean | undefined);
       case "getSpecs":
         return this.getSpecs();
       case "getSpec":
@@ -25,9 +28,9 @@ export class MessageHandler {
       case "getSpecAtChange":
         return this.getSpecAtChange(params?.topic as string, params?.slug as string);
       case "getChanges":
-        return this.getChanges();
+        return this.getChanges(params?.aggregate as boolean | undefined);
       case "getChange":
-        return this.getChange(params?.slug as string);
+        return this.getChange(params?.slug as string, params?.wt as string | undefined);
       case "search":
         return this.search(params?.query as string);
       case "browse":
@@ -37,14 +40,14 @@ export class MessageHandler {
       case "resync":
         return this.resync();
       case "getGraphData":
-        return this.getGraphData();
+        return this.getGraphData(params?.aggregate as boolean | undefined);
       default:
         throw new Error(`Unknown method: ${method}`);
     }
   }
 
-  private async getOverview() {
-    const scan = await scanOpenSpec(this.workspacePath);
+  private async getOverview(aggregate?: boolean) {
+    const scan = await scanOpenSpecAggregated(this.workspacePath, { aggregate });
     let totalTasks = 0;
     let completedTasks = 0;
     for (const change of [...scan.activeChanges, ...scan.archivedChanges]) {
@@ -80,17 +83,30 @@ export class MessageHandler {
     return result;
   }
 
-  private async getChanges() {
-    const scan = await scanOpenSpec(this.workspacePath);
+  private async getChanges(aggregate?: boolean) {
+    const scan = await scanOpenSpecAggregated(this.workspacePath, { aggregate });
     return {
       active: scan.activeChanges,
       archived: scan.archivedChanges,
+      worktrees: scan.worktrees,
+      aggregated: scan.aggregated,
     };
   }
 
-  private getChange(slug: string) {
-    const result = readChange(this.workspacePath, slug);
+  private async getChange(slug: string, wt?: string) {
+    // 指定 wt 時，解析對應 worktree 路徑後再讀
+    let targetDir = this.workspacePath;
+    let source: ReturnType<typeof toWorktreeSource> | undefined;
+    if (wt) {
+      const match = (await listWorktrees(this.workspacePath)).find((w) => w.key === wt);
+      if (match) {
+        targetDir = match.path;
+        source = toWorktreeSource(match);
+      }
+    }
+    const result = readChange(targetDir, slug);
     if (!result) throw new Error("Change not found");
+    if (source) result.source = source;
     return result;
   }
 
@@ -215,7 +231,7 @@ export class MessageHandler {
     return { ok: true };
   }
 
-  private getGraphData() {
-    return buildGraphData(this.workspacePath);
+  private getGraphData(aggregate?: boolean) {
+    return buildGraphDataAggregated(this.workspacePath, { aggregate });
   }
 }

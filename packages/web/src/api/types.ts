@@ -12,15 +12,15 @@ import type {
 } from "@spek/core";
 
 export interface ApiAdapter {
-  getOverview(): Promise<OverviewData>;
+  getOverview(aggregate?: boolean): Promise<OverviewData>;
   getSpecs(): Promise<SpecInfo[]>;
   getSpec(topic: string): Promise<SpecDetail>;
   getSpecAtChange(topic: string, slug: string): Promise<SpecVersionContent>;
-  getChanges(): Promise<ChangesData>;
-  getChange(slug: string): Promise<ChangeDetail>;
+  getChanges(aggregate?: boolean): Promise<ChangesData>;
+  getChange(slug: string, wt?: string): Promise<ChangeDetail>;
   search(query: string): Promise<SearchResult[]>;
   browse(path: string): Promise<BrowseData>;
   detect(path: string): Promise<DetectData>;
   resync(): Promise<void>;
-  getGraphData(): Promise<GraphData>;
+  getGraphData(aggregate?: boolean): Promise<GraphData>;
 }

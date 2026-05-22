@@ -3,7 +3,17 @@ import Fuse from "fuse.js";
 import fs from "node:fs";
 import path from "node:path";
 import chokidar from "chokidar";
-import { scanOpenSpec, readSpec, readChange, readSpecAtChange, resyncTimestamps, buildGraphData } from "@spek/core";
+import {
+  scanOpenSpec,
+  scanOpenSpecAggregated,
+  readSpec,
+  readChange,
+  readSpecAtChange,
+  resyncTimestamps,
+  buildGraphDataAggregated,
+  listWorktrees,
+  toWorktreeSource,
+} from "@spek/core";
 
 // --- File watcher 共享管理 ---
 
@@ -15,12 +25,13 @@ interface WatcherEntry {
 
 const watchers = new Map<string, WatcherEntry>();
 
-function getOrCreateWatcher(dir: string): WatcherEntry {
-  const existing = watchers.get(dir);
+// 聚合時 watchDirs 含全部 worktree；非聚合時只含指定目錄。key 區分不同的監看集合。
+function getOrCreateWatcher(key: string, watchDirs: string[]): WatcherEntry {
+  const existing = watchers.get(key);
   if (existing) return existing;
 
-  const watchPath = path.join(dir, "openspec");
-  const watcher = chokidar.watch(watchPath, {
+  const watchPaths = watchDirs.map((d) => path.join(d, "openspec"));
+  const watcher = chokidar.watch(watchPaths, {
     ignored: (filePath: string) => {
       // 只監聽 .md 和 .yaml 檔案（以及目錄）
       if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
@@ -48,18 +59,18 @@ function getOrCreateWatcher(dir: string): WatcherEntry {
   watcher.on("change", notifyClients);
   watcher.on("unlink", notifyClients);
 
-  watchers.set(dir, entry);
+  watchers.set(key, entry);
   return entry;
 }
 
-function removeClient(dir: string, client: Response) {
-  const entry = watchers.get(dir);
+function removeClient(key: string, client: Response) {
+  const entry = watchers.get(key);
   if (!entry) return;
   entry.clients.delete(client);
   if (entry.clients.size === 0) {
     if (entry.debounceTimer) clearTimeout(entry.debounceTimer);
     entry.watcher.close();
-    watchers.delete(dir);
+    watchers.delete(key);
   }
 }
 
@@ -76,7 +87,8 @@ openspecRouter.use((req: Request, res: Response, next: NextFunction) => {
 
 openspecRouter.get("/overview", async (req, res) => {
   const dir = req.query.dir as string;
-  const scan = await scanOpenSpec(dir);
+  const aggregate = req.query.aggregate !== "false";
+  const scan = await scanOpenSpecAggregated(dir, { aggregate });
 
   let totalTasks = 0;
   let completedTasks = 0;
@@ -125,20 +137,37 @@ openspecRouter.get("/specs/:topic/at/:slug", (req, res) => {
 
 openspecRouter.get("/changes", async (req, res) => {
   const dir = req.query.dir as string;
-  const scan = await scanOpenSpec(dir);
+  const aggregate = req.query.aggregate !== "false";
+  const scan = await scanOpenSpecAggregated(dir, { aggregate });
   res.json({
     active: scan.activeChanges,
     archived: scan.archivedChanges,
+    worktrees: scan.worktrees,
+    aggregated: scan.aggregated,
   });
 });
 
-openspecRouter.get("/changes/:slug", (req, res) => {
+openspecRouter.get("/changes/:slug", async (req, res) => {
   const dir = req.query.dir as string;
-  const result = readChange(dir, req.params.slug);
+  const wt = req.query.wt as string | undefined;
+
+  // 指定 wt 時，解析對應 worktree 路徑後再讀；否則沿用 dir
+  let targetDir = dir;
+  let source: ReturnType<typeof toWorktreeSource> | undefined;
+  if (wt) {
+    const match = (await listWorktrees(dir)).find((w) => w.key === wt);
+    if (match) {
+      targetDir = match.path;
+      source = toWorktreeSource(match);
+    }
+  }
+
+  const result = readChange(targetDir, req.params.slug);
   if (!result) {
     res.status(404).json({ error: "Change not found" });
     return;
   }
+  if (source) result.source = source;
   res.json(result);
 });
 
@@ -239,16 +268,18 @@ openspecRouter.get("/search", (req, res) => {
   res.json(response);
 });
 
-openspecRouter.get("/graph", (req, res) => {
+openspecRouter.get("/graph", async (req, res) => {
   const dir = req.query.dir as string;
-  const graphData = buildGraphData(dir);
+  const aggregate = req.query.aggregate !== "false";
+  const graphData = await buildGraphDataAggregated(dir, { aggregate });
   res.json(graphData);
 });
 
 // --- SSE file watching endpoint ---
 
-openspecRouter.get("/watch", (req, res) => {
+openspecRouter.get("/watch", async (req, res) => {
   const dir = req.query.dir as string;
+  const aggregate = req.query.aggregate !== "false";
 
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
@@ -259,11 +290,20 @@ openspecRouter.get("/watch", (req, res) => {
   // 送一個初始 comment 確認連線
   res.write(": connected\n\n");
 
-  const entry = getOrCreateWatcher(dir);
+  // 聚合時監看所有 worktree 的 openspec/，任一 worktree 變動都推送更新
+  let watchDirs = [dir];
+  if (aggregate) {
+    const worktrees = await listWorktrees(dir);
+    if (worktrees.length > 1) {
+      watchDirs = worktrees.map((w) => w.path);
+    }
+  }
+  const key = `${dir}::${aggregate}`;
+  const entry = getOrCreateWatcher(key, watchDirs);
   entry.clients.add(res);
 
   req.on("close", () => {
-    removeClient(dir, res);
+    removeClient(key, res);
   });
 });
 

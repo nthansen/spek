@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import { MessageHandler } from "./handler";
+import { listWorktrees } from "@spek/core";
 
 export class SpekPanel {
   private static instance: SpekPanel | undefined;
@@ -10,6 +11,8 @@ export class SpekPanel {
   private disposables: vscode.Disposable[] = [];
   private webviewReady = false;
   private pendingMessages: unknown[] = [];
+  private disposed = false;
+  private fileChangeTimer: ReturnType<typeof setTimeout> | undefined;
 
   private constructor(
     private readonly context: vscode.ExtensionContext,
@@ -89,26 +92,16 @@ export class SpekPanel {
       this.disposables,
     );
 
-    // 監聽 openspec 檔案變更，通知 webview 刷新
-    const fileWatcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(workspacePath, "openspec/**"),
-    );
-    let fileChangeTimer: ReturnType<typeof setTimeout> | undefined;
-    const notifyFileChange = () => {
-      if (fileChangeTimer) clearTimeout(fileChangeTimer);
-      fileChangeTimer = setTimeout(() => {
-        this.panel.webview.postMessage({ type: "fileChanged" });
-      }, 500);
-    };
-    fileWatcher.onDidCreate(notifyFileChange, null, this.disposables);
-    fileWatcher.onDidChange(notifyFileChange, null, this.disposables);
-    fileWatcher.onDidDelete(notifyFileChange, null, this.disposables);
-    this.disposables.push(fileWatcher);
+    // 監聽 openspec 檔案變更，通知 webview 刷新。
+    // 聚合模式下也監看同 repo 其他 worktree 的 openspec/，任一 worktree 變更都會刷新。
+    this.watchOpenspec(workspacePath);
+    this.addWorktreeWatchers(workspacePath);
 
     // Panel 關閉時清理
     this.panel.onDidDispose(
       () => {
         SpekPanel.instance = undefined;
+        this.disposed = true;
         this.webviewReady = false;
         this.pendingMessages = [];
         this.disposables.forEach((d) => d.dispose());
@@ -117,6 +110,38 @@ export class SpekPanel {
       null,
       this.disposables,
     );
+  }
+
+  // 對指定目錄的 openspec/ 建立檔案監看，變更時 debounce 通知 webview
+  private watchOpenspec(dir: string): void {
+    if (this.disposed) return;
+    const watcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(vscode.Uri.file(dir), "openspec/**"),
+    );
+    watcher.onDidCreate(() => this.notifyFileChange(), null, this.disposables);
+    watcher.onDidChange(() => this.notifyFileChange(), null, this.disposables);
+    watcher.onDidDelete(() => this.notifyFileChange(), null, this.disposables);
+    this.disposables.push(watcher);
+  }
+
+  // 聚合模式：為同 repo 其他 worktree 的 openspec/ 也建立監看
+  private addWorktreeWatchers(workspacePath: string): void {
+    const main = path.resolve(workspacePath);
+    void listWorktrees(workspacePath).then((worktrees) => {
+      if (this.disposed) return;
+      for (const wt of worktrees) {
+        if (!wt.isBare && wt.path !== main) {
+          this.watchOpenspec(wt.path);
+        }
+      }
+    });
+  }
+
+  private notifyFileChange(): void {
+    if (this.fileChangeTimer) clearTimeout(this.fileChangeTimer);
+    this.fileChangeTimer = setTimeout(() => {
+      this.panel.webview.postMessage({ type: "fileChanged" });
+    }, 500);
   }
 
   static createOrShow(context: vscode.ExtensionContext): SpekPanel {

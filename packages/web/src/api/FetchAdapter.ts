@@ -39,8 +39,13 @@ export class FetchAdapter implements ApiAdapter {
     return `${this.dirParam}=${encodeURIComponent(this.repoPath)}`;
   }
 
-  getOverview(): Promise<OverviewData> {
-    return fetchJson(`${this.baseUrl}/openspec/overview?${this.q()}`);
+  // 聚合預設開啟，僅在明確關閉時帶 aggregate=false
+  private agg(aggregate?: boolean): string {
+    return aggregate === false ? "&aggregate=false" : "";
+  }
+
+  getOverview(aggregate?: boolean): Promise<OverviewData> {
+    return fetchJson(`${this.baseUrl}/openspec/overview?${this.q()}${this.agg(aggregate)}`);
   }
 
   getSpecs(): Promise<SpecInfo[]> {
@@ -55,12 +60,13 @@ export class FetchAdapter implements ApiAdapter {
     return fetchJson(`${this.baseUrl}/openspec/specs/${encodeURIComponent(topic)}/at/${encodeURIComponent(slug)}?${this.q()}`);
   }
 
-  getChanges(): Promise<ChangesData> {
-    return fetchJson(`${this.baseUrl}/openspec/changes?${this.q()}`);
+  getChanges(aggregate?: boolean): Promise<ChangesData> {
+    return fetchJson(`${this.baseUrl}/openspec/changes?${this.q()}${this.agg(aggregate)}`);
   }
 
-  getChange(slug: string): Promise<ChangeDetail> {
-    return fetchJson(`${this.baseUrl}/openspec/changes/${encodeURIComponent(slug)}?${this.q()}`);
+  getChange(slug: string, wt?: string): Promise<ChangeDetail> {
+    const wtParam = wt ? `&wt=${encodeURIComponent(wt)}` : "";
+    return fetchJson(`${this.baseUrl}/openspec/changes/${encodeURIComponent(slug)}?${this.q()}${wtParam}`);
   }
 
   search(query: string): Promise<SearchResult[]> {
@@ -80,7 +86,7 @@ export class FetchAdapter implements ApiAdapter {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
   }
 
-  getGraphData(): Promise<GraphData> {
-    return fetchJson(`${this.baseUrl}/openspec/graph?${this.q()}`);
+  getGraphData(aggregate?: boolean): Promise<GraphData> {
+    return fetchJson(`${this.baseUrl}/openspec/graph?${this.q()}${this.agg(aggregate)}`);
   }
 }

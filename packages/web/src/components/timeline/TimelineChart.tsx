@@ -6,6 +6,9 @@ import { TimelineAxis } from "./TimelineAxis";
 import { TimelineBar, type BarHoverPayload } from "./TimelineBar";
 import { TimelineTooltip } from "./TimelineTooltip";
 import { todayIso } from "../../utils/lifecycle";
+import { changeTo } from "../../utils/changeLink";
+import { WorktreeBadge } from "../WorktreeBadge";
+import type { ChangeInfo } from "@spek/core";
 
 interface TimelineChartProps {
   lanes: Lane[];
@@ -115,7 +118,7 @@ export function TimelineChart({ lanes, groupByTopic }: TimelineChartProps) {
     [domain],
   );
 
-  const handleClick = (slug: string) => navigate(`/changes/${slug}`);
+  const handleClick = (c: ChangeInfo) => navigate(changeTo(c));
 
   return (
     <div
@@ -151,12 +154,13 @@ export function TimelineChart({ lanes, groupByTopic }: TimelineChartProps) {
               return (
                 <button
                   key={`label-item-${ri}`}
-                  onClick={() => handleClick(item.change.slug)}
-                  className="w-full text-left px-3 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary truncate cursor-pointer flex items-center"
+                  onClick={() => handleClick(item.change)}
+                  className="w-full text-left px-3 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary cursor-pointer flex items-center gap-1.5"
                   style={{ height: ROW_HEIGHT }}
                   title={item.change.description}
                 >
-                  {item.change.slug}
+                  <span className="truncate">{item.change.slug}</span>
+                  {item.change.source && <WorktreeBadge source={item.change.source} />}
                 </button>
               );
             })}

@@ -1,13 +1,21 @@
 export { parseTasks } from "./tasks.js";
 export {
   scanOpenSpec,
+  scanOpenSpecAggregated,
   readSpec,
   readChange,
   readSpecAtChange,
   findRelatedChanges,
   buildGraphData,
+  buildGraphDataAggregated,
   parseSlug,
 } from "./scanner.js";
+export {
+  listWorktrees,
+  parseWorktreePorcelain,
+  worktreeKey,
+  toWorktreeSource,
+} from "./worktrees.js";
 export {
   getTimestamps,
   resyncTimestamps,
@@ -29,6 +37,9 @@ export type {
   ChangesData,
   OverviewData,
   ScanResult,
+  AggregatedScanResult,
+  WorktreeInfo,
+  WorktreeSource,
   SearchResult,
   BrowseEntry,
   BrowseData,

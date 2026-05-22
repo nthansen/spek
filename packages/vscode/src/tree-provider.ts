@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { scanOpenSpec, readSpec, extractHeadings } from "@spek/core";
+import { scanOpenSpec, scanOpenSpecAggregated, readSpec, extractHeadings } from "@spek/core";
 import type { SpecInfo, ChangeInfo, Heading } from "@spek/core";
 import { formatTreeItemDescription } from "./lifecycle";
 
@@ -27,6 +27,7 @@ export class SpecsTreeProvider implements vscode.TreeDataProvider<SpecsTreeNode>
     if (element instanceof SpecTreeItem) {
       try {
         const detail = await readSpec(this.workspacePath, element.topic);
+        if (!detail) return [];
         const headings = extractHeadings(detail.content);
         return headings.map((h) => new SpecHeadingItem(element.topic, h));
       } catch {
@@ -109,7 +110,8 @@ export class ChangesTreeProvider implements vscode.TreeDataProvider<ChangesTreeN
     }
 
     try {
-      const scan = await scanOpenSpec(this.workspacePath);
+      // 跨 worktree 聚合，與 webview panel 的 Changes 頁一致
+      const scan = await scanOpenSpecAggregated(this.workspacePath);
       const groups: ChangeGroupItem[] = [];
 
       if (scan.activeChanges.length > 0) {
@@ -142,21 +144,35 @@ class ChangeGroupItem extends vscode.TreeItem {
 class ChangeTreeItem extends vscode.TreeItem {
   constructor(change: ChangeInfo) {
     super(change.slug, vscode.TreeItemCollapsibleState.None);
-    const description = formatTreeItemDescription(change);
-    if (description) this.description = description;
+
+    // description：lifecycle 資訊 +（非主 worktree 時）來源 branch
+    const parts: string[] = [];
+    const lifecycle = formatTreeItemDescription(change);
+    if (lifecycle) parts.push(lifecycle);
+    if (change.source && !change.source.isMain) {
+      parts.push(change.source.branch ?? "detached");
+    }
+    if (parts.length > 0) this.description = parts.join(" · ");
 
     const tooltipLines = [change.description || change.slug];
     if (change.createdDate) tooltipLines.push(`Created: ${change.createdDate}`);
     if (change.archivedDate) tooltipLines.push(`Archived: ${change.archivedDate}`);
+    if (change.source && !change.source.isMain) {
+      tooltipLines.push(`Worktree: ${change.source.branch ?? change.source.path}`);
+    }
     this.tooltip = tooltipLines.join("\n");
 
     this.iconPath = new vscode.ThemeIcon(
       change.status === "active" ? "edit" : "check",
     );
+    // 聚合時帶 ?wt= 讓詳細頁能從正確的 worktree 讀取
+    const route = change.source
+      ? `/changes/${change.slug}?wt=${change.source.key}`
+      : `/changes/${change.slug}`;
     this.command = {
       command: "spek.navigateTo",
       title: "Open Change",
-      arguments: [`/changes/${change.slug}`],
+      arguments: [route],
     };
   }
 }

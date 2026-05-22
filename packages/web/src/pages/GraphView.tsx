@@ -144,6 +144,12 @@ function ForceGraph({ data, onNavigate, theme }: { data: GraphData; onNavigate: 
       .attr("font-size", 12)
       .attr("pointer-events", "none");
 
+    // 聚合圖：非主 worktree 的 change 節點以 <title> 標示來源 worktree / branch
+    nodeSel
+      .filter((d) => d.type === "change" && !!d.source && !d.source.isMain)
+      .append("title")
+      .text((d) => `${d.label} · ${d.source?.branch ?? "detached"}`);
+
     // Hover 互動
     nodeSel
       .on("mouseenter", (_event, d) => {
@@ -170,6 +176,10 @@ function ForceGraph({ data, onNavigate, theme }: { data: GraphData; onNavigate: 
       if (dragged) return;
       if (d.type === "spec") {
         onNavigateRef.current(`/specs/${d.label}`);
+      } else if (d.source) {
+        // 聚合節點 id 為 change:<key>:<slug>，導覽帶上 wt 以辨識來源 worktree
+        const slug = d.id.slice(`change:${d.source.key}:`.length);
+        onNavigateRef.current(`/changes/${slug}?wt=${d.source.key}`);
       } else {
         // 從 id 取得 slug（去掉 "change:" 前綴）
         const slug = d.id.replace(/^change:/, "");

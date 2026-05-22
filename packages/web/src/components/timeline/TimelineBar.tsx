@@ -8,7 +8,7 @@ interface TimelineBarProps {
   y: number;
   barHeight: number;
   onHover: (payload: BarHoverPayload | null) => void;
-  onClick: (slug: string) => void;
+  onClick: (change: ChangeInfo) => void;
 }
 
 export interface BarHoverPayload {
@@ -48,7 +48,7 @@ export function TimelineBar({ change, topics, scale, today, y, barHeight, onHove
       onMouseEnter={handleMove}
       onMouseMove={handleMove}
       onMouseLeave={() => onHover(null)}
-      onClick={() => onClick(change.slug)}
+      onClick={() => onClick(change)}
       style={{ cursor: "pointer" }}
     >
       <rect
@@ -61,7 +61,7 @@ export function TimelineBar({ change, topics, scale, today, y, barHeight, onHove
         fill={fill}
         fillOpacity={fillOpacity}
       >
-        <title>{`${change.slug} (${change.status})`}</title>
+        <title>{`${change.slug} (${change.status})${change.source && !change.source.isMain ? ` · ${change.source.branch ?? "detached"}` : ""}`}</title>
       </rect>
       {!isArchived && (
         <polygon

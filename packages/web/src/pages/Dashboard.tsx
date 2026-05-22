@@ -3,6 +3,8 @@ import { useOverview, useChanges } from "../hooks/useOpenSpec";
 import { TaskProgress } from "../components/TaskProgress";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 import { daysBetween, todayIso } from "../utils/lifecycle";
+import { WorktreeBadge } from "../components/WorktreeBadge";
+import { changeKey, changeTo } from "../utils/changeLink";
 
 const STALE_THRESHOLD_DAYS = 30;
 
@@ -25,6 +27,7 @@ export function Dashboard() {
 
   const activeChanges = changes.data?.active ?? [];
   const archivedChanges = (changes.data?.archived ?? []).slice(0, 10);
+  const showSource = !!changes.data?.aggregated && (changes.data?.worktrees?.length ?? 0) > 1;
 
   const today = todayIso();
   const archivedSpans = (changes.data?.archived ?? [])
@@ -64,14 +67,17 @@ export function Dashboard() {
           <div className="space-y-2">
             {activeChanges.map((c) => (
               <Link
-                key={c.slug}
-                to={`/changes/${c.slug}`}
+                key={changeKey(c)}
+                to={changeTo(c)}
                 className="block bg-bg-secondary border border-border rounded p-4 hover:border-accent transition-colors"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-text-primary font-medium">{c.description}</span>
+                <div className="flex items-center justify-between gap-4 mb-2">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="text-text-primary font-medium truncate">{c.description}</span>
+                    {showSource && c.source && <WorktreeBadge source={c.source} />}
+                  </span>
                   {(c.timestamp || c.date) && (
-                    <span className="text-text-muted text-xs" title={c.timestamp || undefined}>
+                    <span className="text-text-muted text-xs whitespace-nowrap shrink-0" title={c.timestamp || undefined}>
                       {c.timestamp ? formatRelativeTime(c.timestamp) : c.date}
                     </span>
                   )}
@@ -94,13 +100,16 @@ export function Dashboard() {
           <div className="space-y-1">
             {archivedChanges.map((c) => (
               <Link
-                key={c.slug}
-                to={`/changes/${c.slug}`}
-                className="flex items-center justify-between px-3 py-2 rounded hover:bg-bg-secondary transition-colors"
+                key={changeKey(c)}
+                to={changeTo(c)}
+                className="flex items-center justify-between gap-4 px-3 py-2 rounded hover:bg-bg-secondary transition-colors"
               >
-                <span className="text-text-primary text-sm">{c.description}</span>
+                <span className="flex items-center gap-2 min-w-0">
+                  <span className="text-text-primary text-sm truncate">{c.description}</span>
+                  {showSource && c.source && <WorktreeBadge source={c.source} />}
+                </span>
                 {(c.timestamp || c.date) && (
-                  <span className="text-text-muted text-xs" title={c.timestamp || undefined}>
+                  <span className="text-text-muted text-xs whitespace-nowrap shrink-0" title={c.timestamp || undefined}>
                     {c.timestamp ? formatRelativeTime(c.timestamp) : c.date}
                   </span>
                 )}

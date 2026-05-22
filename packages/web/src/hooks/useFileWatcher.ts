@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useRepo } from "../contexts/RepoContext";
 import { useRefresh } from "../contexts/RefreshContext";
+import { getAggregatePref } from "../utils/aggregatePref";
 
 /**
  * 監聽 openspec 檔案變更，自動觸發 refresh。
@@ -30,10 +31,11 @@ export function useFileWatcher() {
       return () => window.removeEventListener("message", handler);
     }
 
-    // Web 環境：SSE EventSource
+    // Web 環境：SSE EventSource。聚合開啟時後端會監看所有 worktree。
     if (!repoPath) return;
 
-    const url = `/api/openspec/watch?dir=${encodeURIComponent(repoPath)}`;
+    const aggParam = getAggregatePref() ? "" : "&aggregate=false";
+    const url = `/api/openspec/watch?dir=${encodeURIComponent(repoPath)}${aggParam}`;
     const source = new EventSource(url);
 
     source.onmessage = () => {

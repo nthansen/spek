@@ -4,6 +4,7 @@ import { useChanges, useGraphData } from "../hooks/useOpenSpec";
 import type { ChangeInfo } from "@spek/core";
 import { buildLanes, type Lane } from "../components/timeline/grouping";
 import { TimelineChart } from "../components/timeline/TimelineChart";
+import { changeKey, changeTo } from "../utils/changeLink";
 
 function filterChanges(
   list: ChangeInfo[],
@@ -138,9 +139,9 @@ export function TimelinePage() {
           </h2>
           <ul className="space-y-1">
             {unknownCreated.map((c) => (
-              <li key={c.slug}>
+              <li key={changeKey(c)}>
                 <Link
-                  to={`/changes/${c.slug}`}
+                  to={changeTo(c)}
                   className="text-xs text-text-muted hover:text-text-primary font-mono"
                   title={c.description}
                 >

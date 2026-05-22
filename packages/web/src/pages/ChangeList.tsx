@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { ChangeInfo } from "@spek/core";
 import { useChanges } from "../hooks/useOpenSpec";
 import { TaskProgress } from "../components/TaskProgress";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 import { formatLifecycleListRow, todayIso } from "../utils/lifecycle";
+import { getAggregatePref, setAggregatePref } from "../utils/aggregatePref";
+import { WorktreeBadge } from "../components/WorktreeBadge";
+import { changeKey, changeTo } from "../utils/changeLink";
 
 function changeMetaDisplay(c: ChangeInfo, today: string): { text: string; tooltip: string } | null {
   const lifecycle = formatLifecycleListRow(c, today);
@@ -23,20 +27,83 @@ function changeMetaDisplay(c: ChangeInfo, today: string): { text: string; toolti
   return null;
 }
 
+function ChangeRow({ c, today, accent, showSource }: {
+  c: ChangeInfo;
+  today: string;
+  accent: boolean;
+  showSource: boolean;
+}) {
+  const meta = changeMetaDisplay(c, today);
+  return (
+    <Link
+      to={changeTo(c)}
+      className={`block bg-bg-secondary border border-border rounded p-4 hover:border-accent transition-colors${
+        accent ? " border-l-4 border-l-accent" : ""
+      }`}
+    >
+      <div className={`flex items-center justify-between gap-4${accent ? " mb-2" : ""}`}>
+        <span className="flex items-center gap-2 min-w-0">
+          <span className={`truncate ${accent ? "text-text-primary font-medium" : "text-text-primary"}`}>
+            {c.description}
+          </span>
+          {showSource && c.source && <WorktreeBadge source={c.source} />}
+        </span>
+        {meta && (
+          <span
+            className="text-text-muted text-xs whitespace-nowrap shrink-0 tracking-wide [word-spacing:0.15em]"
+            title={meta.tooltip}
+          >
+            {meta.text}
+          </span>
+        )}
+      </div>
+      {accent && c.taskStats && (
+        <TaskProgress completed={c.taskStats.completed} total={c.taskStats.total} />
+      )}
+    </Link>
+  );
+}
+
 export function ChangeList() {
-  const { data, loading, error } = useChanges();
+  const [aggregate, setAggregate] = useState(getAggregatePref());
+  const { data, loading, error } = useChanges(aggregate);
 
   if (loading) return <p className="text-text-muted">Loading...</p>;
   if (error) return <p className="text-red-400">Error: {error}</p>;
 
   const active = data?.active ?? [];
   const archived = data?.archived ?? [];
+  const worktrees = data?.worktrees ?? [];
+  const showSource = !!data?.aggregated && worktrees.length > 1;
   const today = todayIso();
+
+  const handleToggle = () => {
+    const next = !aggregate;
+    setAggregate(next);
+    setAggregatePref(next);
+  };
+
+  const header = (
+    <div className="flex items-center justify-between gap-4">
+      <h1 className="text-2xl font-bold">Changes</h1>
+      {worktrees.length > 1 && (
+        <label className="flex items-center gap-2 text-xs text-text-muted cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={aggregate}
+            onChange={handleToggle}
+            className="accent-accent"
+          />
+          Aggregate {worktrees.length} worktrees
+        </label>
+      )}
+    </div>
+  );
 
   if (active.length === 0 && archived.length === 0) {
     return (
-      <div>
-        <h1 className="text-2xl font-bold mb-4">Changes</h1>
+      <div className="space-y-4">
+        {header}
         <p className="text-text-muted">No changes found</p>
       </div>
     );
@@ -44,63 +111,26 @@ export function ChangeList() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold">Changes</h1>
+      {header}
 
-      {/* Active */}
       {active.length > 0 && (
         <section>
           <h2 className="text-lg font-semibold mb-3">Active</h2>
           <div className="space-y-2">
-            {active.map((c) => {
-              const meta = changeMetaDisplay(c, today);
-              return (
-                <Link
-                  key={c.slug}
-                  to={`/changes/${c.slug}`}
-                  className="block bg-bg-secondary border border-border border-l-4 border-l-accent rounded p-4 hover:border-accent transition-colors"
-                >
-                  <div className="flex items-center justify-between gap-4 mb-2">
-                    <span className="text-text-primary font-medium truncate">{c.description}</span>
-                    {meta && (
-                      <span className="text-text-muted text-xs whitespace-nowrap shrink-0 tracking-wide [word-spacing:0.15em]" title={meta.tooltip}>
-                        {meta.text}
-                      </span>
-                    )}
-                  </div>
-                  {c.taskStats && (
-                    <TaskProgress completed={c.taskStats.completed} total={c.taskStats.total} />
-                  )}
-                </Link>
-              );
-            })}
+            {active.map((c) => (
+              <ChangeRow key={changeKey(c)} c={c} today={today} accent showSource={showSource} />
+            ))}
           </div>
         </section>
       )}
 
-      {/* Archived */}
       {archived.length > 0 && (
         <section>
           <h2 className="text-lg font-semibold mb-3">Archived</h2>
           <div className="space-y-2">
-            {archived.map((c) => {
-              const meta = changeMetaDisplay(c, today);
-              return (
-                <Link
-                  key={c.slug}
-                  to={`/changes/${c.slug}`}
-                  className="block bg-bg-secondary border border-border rounded p-4 hover:border-accent transition-colors"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-text-primary truncate">{c.description}</span>
-                    {meta && (
-                      <span className="text-text-muted text-xs whitespace-nowrap shrink-0 tracking-wide [word-spacing:0.15em]" title={meta.tooltip}>
-                        {meta.text}
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
+            {archived.map((c) => (
+              <ChangeRow key={changeKey(c)} c={c} today={today} accent={false} showSource={showSource} />
+            ))}
           </div>
         </section>
       )}

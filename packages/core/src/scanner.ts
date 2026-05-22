@@ -2,12 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseTasks } from "./tasks.js";
 import { getTimestamps } from "./git-cache.js";
+import { listWorktrees, toWorktreeSource } from "./worktrees.js";
 import type {
   SpecInfo,
   ChangeInfo,
   ChangeDetail,
   HistoryEntry,
   ScanResult,
+  AggregatedScanResult,
   TaskStats,
   GraphData,
   GraphNode,
@@ -92,6 +94,13 @@ function scanChangeDir(
     hasSpecs,
     taskStats,
   };
+}
+
+// 依 git timestamp 降序排列，無 timestamp 時 fallback 回 slug 日期。
+function compareChangesByTimestamp(a: ChangeInfo, b: ChangeInfo): number {
+  const ta = a.timestamp || a.date || "";
+  const tb = b.timestamp || b.date || "";
+  return tb.localeCompare(ta);
 }
 
 export async function scanOpenSpec(repoDir: string): Promise<ScanResult> {
@@ -359,4 +368,129 @@ export function findRelatedChanges(repoDir: string, topic: string): string[] {
   }
 
   return related;
+}
+
+/**
+ * 跨 worktree 聚合掃描。探索 repoDir 所屬 repo 的所有 worktree，
+ * active changes 聯集不去重並附 source、archived changes 依 slug 去重（主 worktree 優先）、
+ * specs 取主 worktree。關閉聚合、非 git、或單一 worktree 時等同 scanOpenSpec(repoDir)。
+ */
+export async function scanOpenSpecAggregated(
+  repoDir: string,
+  options: { aggregate?: boolean } = {},
+): Promise<AggregatedScanResult> {
+  const aggregate = options.aggregate !== false;
+  // 一律探索 worktree，讓 UI 即使在關閉聚合時仍知道有多個 worktree（可重新開啟聚合）
+  const worktrees = await listWorktrees(repoDir);
+
+  if (!aggregate || worktrees.length <= 1) {
+    const single = await scanOpenSpec(repoDir);
+    return { ...single, worktrees, aggregated: false };
+  }
+
+  // 各 worktree 平行掃描
+  const scans = await Promise.all(
+    worktrees.map(async (wt) => ({ wt, scan: await scanOpenSpec(wt.path) })),
+  );
+
+  // 主 worktree = 第一個非 bare（通常即 worktrees[0]）
+  const main = scans.find((s) => !s.wt.isBare) ?? scans[0];
+
+  // active changes：所有 worktree 聯集、不去重、附 source
+  const activeChanges: ChangeInfo[] = [];
+  for (const { wt, scan } of scans) {
+    const source = toWorktreeSource(wt);
+    for (const c of scan.activeChanges) {
+      activeChanges.push({ ...c, source });
+    }
+  }
+
+  // archived changes：依 slug 去重，主 worktree 優先，其餘只在獨有時加入
+  const archivedBySlug = new Map<string, ChangeInfo>();
+  for (const c of main.scan.archivedChanges) {
+    archivedBySlug.set(c.slug, { ...c, source: toWorktreeSource(main.wt) });
+  }
+  for (const { wt, scan } of scans) {
+    if (wt === main.wt) continue;
+    const source = toWorktreeSource(wt);
+    for (const c of scan.archivedChanges) {
+      if (!archivedBySlug.has(c.slug)) {
+        archivedBySlug.set(c.slug, { ...c, source });
+      }
+    }
+  }
+  const archivedChanges = [...archivedBySlug.values()];
+
+  activeChanges.sort(compareChangesByTimestamp);
+  archivedChanges.sort(compareChangesByTimestamp);
+
+  return {
+    specs: main.scan.specs,
+    activeChanges,
+    archivedChanges,
+    worktrees,
+    aggregated: true,
+  };
+}
+
+/**
+ * 跨 worktree 聚合的關聯圖。change 節點涵蓋所有 worktree（active 不去重、archived 依 slug 去重），
+ * 節點 id 命名為 `change:<worktreeKey>:<slug>` 避免碰撞；spec 節點只取主 worktree。
+ * 關閉聚合、非 git、或單一 worktree 時等同 buildGraphData(repoDir)。
+ */
+export async function buildGraphDataAggregated(
+  repoDir: string,
+  options: { aggregate?: boolean } = {},
+): Promise<GraphData> {
+  const aggregate = options.aggregate !== false;
+  const worktrees = aggregate ? await listWorktrees(repoDir) : [];
+
+  if (!aggregate || worktrees.length <= 1) {
+    return buildGraphData(repoDir);
+  }
+
+  const main = worktrees.find((w) => !w.isBare) ?? worktrees[0];
+
+  // spec 節點：只取主 worktree
+  const nodes: GraphNode[] = buildGraphData(main.path).nodes
+    .filter((n) => n.type === "spec")
+    .map((n) => ({ ...n }));
+  const edges: GraphEdge[] = [];
+  const seenArchivedSlugs = new Set<string>();
+  const historyCounts = new Map<string, number>();
+
+  // 主 worktree 先處理，確保 archived 去重以主 worktree 為準
+  const ordered = [main, ...worktrees.filter((w) => w !== main)];
+  for (const wt of ordered) {
+    if (wt.isBare) continue;
+    const g = buildGraphData(wt.path);
+    const source = toWorktreeSource(wt);
+    const idMap = new Map<string, string>();
+    for (const node of g.nodes) {
+      if (node.type !== "change") continue;
+      const slug = node.id.slice("change:".length);
+      if (node.status === "archived") {
+        if (seenArchivedSlugs.has(slug)) continue;
+        seenArchivedSlugs.add(slug);
+      }
+      const newId = `change:${wt.key}:${slug}`;
+      idMap.set(node.id, newId);
+      nodes.push({ ...node, id: newId, source });
+    }
+    for (const edge of g.edges) {
+      const newSource = idMap.get(edge.source);
+      if (!newSource) continue;
+      edges.push({ source: newSource, target: edge.target });
+      historyCounts.set(edge.target, (historyCounts.get(edge.target) || 0) + 1);
+    }
+  }
+
+  // 依聚合後的 edge 重算 spec 節點 historyCount
+  for (const node of nodes) {
+    if (node.type === "spec") {
+      node.historyCount = historyCounts.get(node.id) || 0;
+    }
+  }
+
+  return { nodes, edges };
 }

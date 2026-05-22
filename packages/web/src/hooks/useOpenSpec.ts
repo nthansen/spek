@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRepo } from "../contexts/RepoContext";
 import { useApiAdapter } from "../api/ApiAdapterContext";
 import { useRefreshKey } from "../contexts/RefreshContext";
+import { getAggregatePref } from "../utils/aggregatePref";
 import type {
   OverviewData,
   SpecInfo,
@@ -110,12 +111,13 @@ function useAsyncData<T>(
 
 // --- OpenSpec API hooks ---
 
-export function useOverview(): FetchState<OverviewData> {
+export function useOverview(aggregate?: boolean): FetchState<OverviewData> {
   const { repoPath } = useRepo();
   const adapter = useApiAdapter();
+  const agg = aggregate ?? getAggregatePref();
   return useAsyncData(
-    repoPath ? () => adapter.getOverview() : null,
-    [repoPath],
+    repoPath ? () => adapter.getOverview(agg) : null,
+    [repoPath, agg],
   );
 }
 
@@ -146,21 +148,22 @@ export function useSpecAtChange(topic: string, slug: string): FetchState<SpecVer
   );
 }
 
-export function useChanges(): FetchState<ChangesData> {
+export function useChanges(aggregate?: boolean): FetchState<ChangesData> {
   const { repoPath } = useRepo();
   const adapter = useApiAdapter();
+  const agg = aggregate ?? getAggregatePref();
   return useAsyncData(
-    repoPath ? () => adapter.getChanges() : null,
-    [repoPath],
+    repoPath ? () => adapter.getChanges(agg) : null,
+    [repoPath, agg],
   );
 }
 
-export function useChange(slug: string): FetchState<ChangeDetail> {
+export function useChange(slug: string, wt?: string): FetchState<ChangeDetail> {
   const { repoPath } = useRepo();
   const adapter = useApiAdapter();
   return useAsyncData(
-    repoPath && slug ? () => adapter.getChange(slug) : null,
-    [repoPath, slug],
+    repoPath && slug ? () => adapter.getChange(slug, wt) : null,
+    [repoPath, slug, wt],
   );
 }
 
@@ -186,12 +189,13 @@ export function useResync(): { resync: () => Promise<void>; loading: boolean } {
 
 // --- Graph data hook ---
 
-export function useGraphData(): FetchState<GraphData> {
+export function useGraphData(aggregate?: boolean): FetchState<GraphData> {
   const { repoPath } = useRepo();
   const adapter = useApiAdapter();
+  const agg = aggregate ?? getAggregatePref();
   return useAsyncData(
-    repoPath ? () => adapter.getGraphData() : null,
-    [repoPath],
+    repoPath ? () => adapter.getGraphData(agg) : null,
+    [repoPath, agg],
   );
 }
 
