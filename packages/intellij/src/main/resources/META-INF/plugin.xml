@@ -24,16 +24,9 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <p><b>1.3.0</b></p>
-        <p><b>Highlight: Cross-worktree aggregation</b> — when you run agents in parallel across multiple git worktrees, spek now shows the OpenSpec content of all worktrees in one place, instead of forcing you to point spek at each worktree by hand.</p>
+        <p><b>1.3.1</b></p>
         <ul>
-            <li>Point spek at any directory and it auto-discovers every git worktree of the same repo, then merges their active changes, archived changes, and the spec-change graph into a single unified view</li>
-            <li>Each change card / row is tagged with its source worktree branch, so you can tell at a glance which worktree a change lives in</li>
-            <li>A toggle turns aggregation off to view only the current directory</li>
-            <li>Active changes from each worktree coexist (same-named slugs are both shown, identified by their source worktree); archived changes are deduped by slug; the specs list always comes from the main worktree</li>
-            <li>Aggregation is the default whenever multiple worktrees are detected — single-worktree or non-git repos behave exactly as before</li>
-            <li>Supported in the Web version and the VS Code extension (IntelliJ and Demo are unchanged)</li>
-            <li>Fix: the VS Code extension now uses chokidar for file watching, so newly created nested directories (e.g. a change's specs/&lt;topic&gt;/spec.md) are detected and the change-detail spec tab live-reloads correctly</li>
+            <li>Fix: a fresh clone now starts cleanly with <code>npm install &amp;&amp; npm run dev</code> — <code>@spek/core</code> resolves to its gitignored <code>dist/</code> build, which neither install nor dev used to produce, so the Express API failed with <code>ERR_MODULE_NOT_FOUND</code> and Vite failed to resolve <code>@spek/core/headings</code>. <code>npm install</code> now compiles <code>@spek/core</code> (new <code>prepare</code> script) and the root <code>dev</code> script rebuilds it before launching (#2)</li>
         </ul>
     ]]></change-notes>
 
