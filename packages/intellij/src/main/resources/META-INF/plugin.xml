@@ -24,9 +24,9 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <p><b>1.3.1</b></p>
+        <p><b>1.3.2</b></p>
         <ul>
-            <li>Fix: a fresh clone now starts cleanly with <code>npm install &amp;&amp; npm run dev</code> — <code>@spek/core</code> resolves to its gitignored <code>dist/</code> build, which neither install nor dev used to produce, so the Express API failed with <code>ERR_MODULE_NOT_FOUND</code> and Vite failed to resolve <code>@spek/core/headings</code>. <code>npm install</code> now compiles <code>@spek/core</code> (new <code>prepare</code> script) and the root <code>dev</code> script rebuilds it before launching (#2)</li>
+            <li>Update VS Code Marketplace keywords/tags for better discoverability — replace <code>bdd</code> with <code>sdd</code>, add <code>spec-driven-development</code> and <code>ai</code>, and drop <code>documentation</code> / <code>viewer</code></li>
         </ul>
     ]]></change-notes>
 
