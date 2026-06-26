@@ -83,14 +83,16 @@ cd packages/intellij && ./gradlew buildPlugin
 - `scanOpenSpec(basePath)` — 掃描單一目錄的 OpenSpec 結構
 - `scanOpenSpecAggregated(basePath, { aggregate })` — 跨 worktree 聚合掃描：探索同 repo 全部 worktree，active changes 聯集並附來源、archived 依 slug 去重、specs 取主 worktree；單一 worktree / 非 git / 關閉聚合時等同 `scanOpenSpec`
 - `readSpec(basePath, topic)` — 讀取單一 spec（含歷史）
-- `readChange(basePath, slug)` — 讀取單一 change
+- `readChange(basePath, slug)` — 讀取單一 change；回傳 `ChangeDetail`，內含動態探索的 `artifacts` 陣列與 `schema` 欄位（不再是固定的 proposal/design/tasks/specs 欄位）
+- `discoverArtifacts(repoRoot, changePath, slug, orderProvider?)` — 以檔案系統為準探索 change 的 artifacts：root 每個 `*.md`（忽略 dotfile / 非 md）為一個 artifact、非空 `specs/` 為一個 specs artifact，依 kind（`markdown` / `tasks` / `specs`）分類；排序委派給 openspec CLI（見下），對不到 / CLI 不可用時退回預設排序（`proposal, design, specs, tasks` 優先、其餘字母序）。`countArtifacts(changePath)` 不讀內容算出數量供列表用
+- **Schema 排序委派給 OpenSpec 權威（不自行解析 schema）** — `schema-order.ts` 的 `cliSchemaOrderProvider` 執行 `openspec status --change <slug> --json`，由純函式 `parseOrderFromStatus` 取出 `actionContext.planningArtifacts`（順序）與 `artifactPaths[id].outputPath`（產出路徑）；CLI 不存在 / 非 0 / archived change / 解析失敗一律回 `null`（退回預設排序）。provider 可注入以利測試。OpenSpec 未把 schema parser 開放為 library（`exports` 只暴露 `.`），故以 CLI 為權威介面；change 顯示用的 schema 名稱另從 `.openspec.yaml` `schema:` 讀取（fallback `openspec/config.yaml`），純讀 yaml key 非解析 schema
 - `readSpecAtChange(basePath, topic, slug)` — 讀取特定 change 中的 spec 歷史版本
 - `buildGraphData(basePath)` — 建立 spec-change 關聯圖資料
 - `buildGraphDataAggregated(basePath, { aggregate })` — 跨 worktree 聚合的關聯圖（change 節點 id 以 `change:<worktreeKey>:<slug>` 命名避免碰撞）
 - `listWorktrees(basePath)` — 以 `git worktree list --porcelain` 列出同 repo 全部 worktree；非 git / 無 `git` 時回 `[]`
 - `parseTasks(content)` — 解析 tasks.md checkbox
 - `extractHeadings(content)` / `slugifyHeading(text)` — 解析 markdown h2/h3 並產生穩定 slug，給 spec detail TOC 與 VS Code sidebar 共用（從 `@spek/core/headings` subpath 引入，避免 webview bundle 把 server-only 模組打包進去）
-- 共用型別：`OverviewData`, `SpecInfo`, `ChangeInfo`, `ChangeDetail`, `GraphData`, `WorktreeInfo`, `WorktreeSource`, `Heading` 等
+- 共用型別：`OverviewData`, `SpecInfo`, `ChangeInfo`, `ChangeDetail`, `ChangeArtifact`, `ArtifactKind`, `GraphData`, `WorktreeInfo`, `WorktreeSource`, `Heading` 等。`ChangeDetail.artifacts: ChangeArtifact[]` 是跨 core / API / adapters / 各前端的通用合約，change detail 的 tab、TOC 都由它驅動（markdown / specs 有 TOC、tasks 無）
 
 ### API Adapter Pattern
 前端透過 `ApiAdapter` 介面抽象通訊層：
@@ -127,7 +129,7 @@ GET /api/openspec/search?dir=...&q=...   # 全文搜尋
 - Kotlin 開發，使用 IntelliJ Platform SDK
 - JCEF（JetBrains 內建 Chromium）載入 React SPA 前端
 - IntelliJ Built-in Server 提供 REST API（`/api/spek/openspec/*`，`projectPath` query param）
-- Kotlin 重新實作 `@spek/core` 掃描/讀取邏輯（`core/` 目錄）
+- Kotlin 重新實作 `@spek/core` 掃描/讀取邏輯（`core/` 目錄），含 artifact 動態探索與 schema 解析（`ArtifactDiscovery.kt`、`SchemaResolver.kt` 對齊 TS 版規則；單元測試見 `src/test/kotlin`）
 - 前端用 `FetchAdapter`（含自訂 `baseUrl` + `dirParam`）連接內嵌 server
 - Tool Window 在 IDE 右側 sidebar 顯示
 - 主題同步透過 JCEF `executeJavaScript()` 注入 CSS class

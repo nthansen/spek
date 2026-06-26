@@ -62,16 +62,27 @@ data class ChangeInfo(
     val hasDesign: Boolean,
     val hasTasks: Boolean,
     val hasSpecs: Boolean,
+    val artifactCount: Int,
+    val schema: String?,
     val taskStats: TaskStats?,
+)
+
+// 動態探索到的單一 change artifact；kind 為 "markdown" | "tasks" | "specs"
+@Serializable
+data class ChangeArtifact(
+    val id: String,
+    val title: String,
+    val kind: String,
+    val content: String? = null,
+    val tasks: ParsedTasks? = null,
+    val specs: List<ChangeSpec>? = null,
 )
 
 @Serializable
 data class ChangeDetail(
     val slug: String,
-    val proposal: String?,
-    val design: String?,
-    val tasks: ParsedTasks?,
-    val specs: List<ChangeSpec>,
+    val schema: String?,
+    val artifacts: List<ChangeArtifact>,
     val metadata: Map<String, String>?,
 )
 

@@ -23,12 +23,21 @@ export {
 } from "./git-cache.js";
 export { extractHeadings, slugifyHeading } from "./headings.js";
 export type { Heading } from "./headings.js";
+export { discoverArtifacts, countArtifacts } from "./artifacts.js";
+export {
+  parseOrderFromStatus,
+  cliSchemaOrderProvider,
+  clearSchemaOrderCache,
+} from "./schema-order.js";
+export type { SchemaArtifactRef, SchemaOrderProvider } from "./schema-order.js";
 
 export type {
   TaskItem,
   TaskSection,
   TaskStats,
   ParsedTasks,
+  ArtifactKind,
+  ChangeArtifact,
   SpecInfo,
   SpecDetail,
   HistoryEntry,

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0
+
+- Custom OpenSpec schemas: spek now renders **whatever artifacts a change actually contains** instead of only the four `spec-driven` files. Any `*.md` at a change root plus the `specs/` delta tree are discovered dynamically, so changes authored under custom schemas (e.g. `superpowers-bridge` with `brainstorm` / `plan` / `verify` / `retrospective`) show every artifact as its own tab
+- Artifact tab ordering is delegated to the OpenSpec CLI (spek never parses schema files itself, so it can't drift from OpenSpec's format): when `openspec` is installed it supplies the authoritative order; otherwise tabs fall back to humanized filenames in the default `proposal -> design -> specs -> tasks` order
+- Each change now shows the schema it was authored under as a badge in the change detail header (different changes in the same repo can use different schemas)
+- Full-text search now indexes every markdown artifact in a change, not just `proposal` / `design` / `tasks`
+- Applies across all surfaces: Web, VS Code extension, IntelliJ plugin, and the static demo
+
 ## 1.3.2
 
 - Update VS Code Marketplace keywords/tags for better discoverability — replace `bdd` with `sdd`, add `spec-driven-development` and `ai`, and drop `documentation` / `viewer`

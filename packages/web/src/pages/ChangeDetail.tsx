@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { extractHeadings } from "@spek/core/headings";
+import type { ChangeArtifact } from "@spek/core";
 import { useChange, useSpecs } from "../hooks/useOpenSpec";
 import { TabView } from "../components/TabView";
 import { TaskProgress } from "../components/TaskProgress";
@@ -9,19 +10,68 @@ import { SpecsTabContent } from "../components/SpecsTabContent";
 import { SpecToc } from "../components/SpecToc";
 import { formatLifecycleBanner, todayIso } from "../utils/lifecycle";
 
-const TAB_IDS = ["proposal", "design", "specs", "tasks"] as const;
-type TabId = (typeof TAB_IDS)[number];
-const DEFAULT_TAB: TabId = "proposal";
 const TOC_MIN_HEADINGS = 3;
-
-function isTabId(value: string | null): value is TabId {
-  return value !== null && (TAB_IDS as readonly string[]).includes(value);
-}
 
 // 對齊 @spek/core 的 parseSlug：去掉開頭 YYYY-MM-DD- 前綴並把 dash 轉空格
 function slugTitle(slug: string): string {
   const m = slug.match(/^\d{4}-\d{2}-\d{2}-(.+)$/);
   return (m ? m[1] : slug).replace(/-/g, " ");
+}
+
+// 某個 artifact 是否可渲染為 markdown 並支援 TOC（markdown / specs 可，tasks 不可）
+function isMarkdownLike(kind: ChangeArtifact["kind"]): boolean {
+  return kind === "markdown" || kind === "specs";
+}
+
+function renderArtifact(artifact: ChangeArtifact, specTopics: string[]) {
+  if (artifact.kind === "markdown") {
+    return artifact.content ? (
+      <MarkdownRenderer content={artifact.content} specTopics={specTopics} />
+    ) : (
+      <p className="text-text-muted text-sm">No content</p>
+    );
+  }
+  if (artifact.kind === "specs") {
+    return artifact.specs && artifact.specs.length > 0 ? (
+      <SpecsTabContent specs={artifact.specs} />
+    ) : (
+      <p className="text-text-muted text-sm">No delta specs</p>
+    );
+  }
+  // tasks
+  return artifact.tasks ? (
+    <div className="space-y-4">
+      <TaskProgress completed={artifact.tasks.completed} total={artifact.tasks.total} />
+      <div className="space-y-4">
+        {artifact.tasks.sections.map((section) => (
+          <div key={section.title}>
+            <h3 className="text-sm font-semibold text-text-secondary mb-2">{section.title}</h3>
+            <div className="space-y-1">
+              {section.tasks.map((task, i) => (
+                <div key={i} className={`flex items-start gap-2 text-sm ${task.completed ? "opacity-60" : ""}`}>
+                  {task.completed ? (
+                    <svg className="w-4 h-4 mt-0.5 shrink-0 text-green-400" viewBox="0 0 16 16" fill="none">
+                      <circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.2" />
+                      <path d="M5 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 mt-0.5 shrink-0 text-text-muted" viewBox="0 0 16 16" fill="none">
+                      <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+                    </svg>
+                  )}
+                  <span className={task.completed ? "text-text-secondary line-through" : "text-text-primary"}>
+                    {task.text}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  ) : (
+    <p className="text-text-muted text-sm">No content</p>
+  );
 }
 
 export function ChangeDetail() {
@@ -34,20 +84,24 @@ export function ChangeDetail() {
   const { data: specsData } = useSpecs();
   const specTopics = specsData?.map((s) => s.topic) ?? [];
 
+  const artifacts = useMemo(() => data?.artifacts ?? [], [data]);
+
+  // 活躍 tab：?tab=<artifact-id>；不存在或未知時 fallback 回第一個 artifact
   const tabParam = searchParams.get("tab");
-  const activeTab: TabId = isTabId(tabParam) ? tabParam : DEFAULT_TAB;
+  const activeArtifact =
+    artifacts.find((a) => a.id === tabParam) ?? artifacts[0] ?? null;
+  const activeTab = activeArtifact?.id ?? "";
 
   const currentHeadings = useMemo(() => {
-    if (!data) return [];
-    if (activeTab === "proposal") return data.proposal ? extractHeadings(data.proposal) : [];
-    if (activeTab === "design") return data.design ? extractHeadings(data.design) : [];
-    if (activeTab === "specs") {
-      return data.specs.flatMap((s) =>
-        extractHeadings(s.content).map((h) => ({ ...h, slug: `${s.topic}--${h.slug}` })),
-      );
+    if (!activeArtifact || !isMarkdownLike(activeArtifact.kind)) return [];
+    if (activeArtifact.kind === "markdown") {
+      return activeArtifact.content ? extractHeadings(activeArtifact.content) : [];
     }
-    return [];
-  }, [data, activeTab]);
+    // specs：每個 delta spec heading 以 topic 前綴避免 id 碰撞
+    return (activeArtifact.specs ?? []).flatMap((s) =>
+      extractHeadings(s.content).map((h) => ({ ...h, slug: `${s.topic}--${h.slug}` })),
+    );
+  }, [activeArtifact]);
 
   // Tab 切換時：URL 只保留 ?tab=<id>，同步清掉 hash（不同 tab 的舊 heading 已無意義），
   // 並把 window 捲回頂端，避免停留在上一個 tab 的視窗位置。
@@ -94,73 +148,11 @@ export function ChangeDetail() {
   if (error) return <p className="text-red-400">Error: {error}</p>;
   if (!data) return <p className="text-text-muted">Change not found</p>;
 
-  const tabs = [
-    {
-      id: "proposal",
-      label: "Proposal",
-      content: data.proposal ? (
-        <MarkdownRenderer content={data.proposal} specTopics={specTopics} />
-      ) : (
-        <p className="text-text-muted text-sm">No content</p>
-      ),
-    },
-    {
-      id: "design",
-      label: "Design",
-      content: data.design ? (
-        <MarkdownRenderer content={data.design} />
-      ) : (
-        <p className="text-text-muted text-sm">No content</p>
-      ),
-    },
-    {
-      id: "specs",
-      label: "Specs",
-      content:
-        data.specs.length > 0 ? (
-          <SpecsTabContent specs={data.specs} />
-        ) : (
-          <p className="text-text-muted text-sm">No delta specs</p>
-        ),
-    },
-    {
-      id: "tasks",
-      label: "Tasks",
-      content: data.tasks ? (
-        <div className="space-y-4">
-          <TaskProgress completed={data.tasks.completed} total={data.tasks.total} />
-          <div className="space-y-4">
-            {data.tasks.sections.map((section) => (
-              <div key={section.title}>
-                <h3 className="text-sm font-semibold text-text-secondary mb-2">{section.title}</h3>
-                <div className="space-y-1">
-                  {section.tasks.map((task, i) => (
-                    <div key={i} className={`flex items-start gap-2 text-sm ${task.completed ? "opacity-60" : ""}`}>
-                      {task.completed ? (
-                        <svg className="w-4 h-4 mt-0.5 shrink-0 text-green-400" viewBox="0 0 16 16" fill="none">
-                          <circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.2" />
-                          <path d="M5 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      ) : (
-                        <svg className="w-4 h-4 mt-0.5 shrink-0 text-text-muted" viewBox="0 0 16 16" fill="none">
-                          <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-                        </svg>
-                      )}
-                      <span className={task.completed ? "text-text-secondary line-through" : "text-text-primary"}>
-                        {task.text}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <p className="text-text-muted text-sm">No content</p>
-      ),
-    },
-  ];
+  const tabs = artifacts.map((artifact) => ({
+    id: artifact.id,
+    label: artifact.title,
+    content: renderArtifact(artifact, specTopics),
+  }));
 
   const lifecycleBanner = formatLifecycleBanner(data, todayIso());
   const title = slug ? slugTitle(slug) : "";
@@ -170,13 +162,26 @@ export function ChangeDetail() {
         &larr; Back to Changes
       </Link>
       <h1 className="text-2xl font-bold mt-2" title={slug}>{title}</h1>
-      {lifecycleBanner && (
-        <p className="text-text-muted text-xs mt-2 mb-1 tracking-wide [word-spacing:0.15em]">{lifecycleBanner}</p>
-      )}
+      <div className="flex items-center gap-2 mt-2 mb-1">
+        {data.schema && (
+          <span
+            className="inline-flex items-center rounded border border-border bg-bg-tertiary px-1.5 py-0.5 text-[11px] font-medium text-text-secondary"
+            title={`Schema: ${data.schema}`}
+          >
+            {data.schema}
+          </span>
+        )}
+        {lifecycleBanner && (
+          <p className="text-text-muted text-xs tracking-wide [word-spacing:0.15em]">{lifecycleBanner}</p>
+        )}
+      </div>
     </div>
   );
 
-  const showToc = activeTab !== "tasks" && currentHeadings.length >= TOC_MIN_HEADINGS;
+  const showToc =
+    activeArtifact !== null &&
+    isMarkdownLike(activeArtifact.kind) &&
+    currentHeadings.length >= TOC_MIN_HEADINGS;
 
   return (
     <div className={showToc ? "xl:grid xl:grid-cols-[minmax(0,1fr)_16rem] xl:gap-8" : ""}>

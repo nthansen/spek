@@ -14,40 +14,20 @@ object ChangeReader {
         }
         if (!changeDir.exists()) return null
 
-        val proposal = readFileOrNull(File(changeDir, "proposal.md"))
-        val design = readFileOrNull(File(changeDir, "design.md"))
-
-        val tasksContent = readFileOrNull(File(changeDir, "tasks.md"))
-        val tasks = tasksContent?.let { TaskParser.parse(it) }
-
-        val specsDir = File(changeDir, "specs")
-        val specs = if (specsDir.isDirectory) {
-            specsDir.listFiles()
-                ?.filter { it.isDirectory && !it.name.startsWith(".") }
-                ?.mapNotNull { topicDir ->
-                    val specFile = File(topicDir, "spec.md")
-                    if (specFile.exists()) {
-                        ChangeSpec(topicDir.name, specFile.readText())
-                    } else null
-                }
-                ?: emptyList()
-        } else emptyList()
-
         // 讀取 .openspec.yaml metadata
         val metadata = readMetadata(File(changeDir, ".openspec.yaml"))
 
+        // change schema：優先 change .openspec.yaml，否則 fallback 回 repo config.yaml（僅供顯示 badge）
+        val schema = readChangeSchema(projectPath, changeDir)
+        // artifact 排序委派給 openspec CLI（以 slug 查詢）；CLI 不可用時退回預設排序
+        val artifacts = ArtifactDiscovery.discover(projectPath, changeDir, slug)
+
         return ChangeDetail(
             slug = slug,
-            proposal = proposal,
-            design = design,
-            tasks = tasks,
-            specs = specs,
+            schema = schema,
+            artifacts = artifacts,
             metadata = metadata,
         )
-    }
-
-    private fun readFileOrNull(file: File): String? {
-        return if (file.exists()) file.readText() else null
     }
 
     private fun readMetadata(file: File): Map<String, String>? {
@@ -60,5 +40,22 @@ object ChangeReader {
             }
         }
         return result
+    }
+
+    /** change schema：change .openspec.yaml 的 schema → repo openspec/config.yaml 的 schema → null */
+    private fun readChangeSchema(projectPath: String, changeDir: File): String? {
+        val changeYaml = File(changeDir, ".openspec.yaml")
+        if (changeYaml.exists()) {
+            val meta = readMetadata(changeYaml)
+            meta?.get("schema")?.let { return it }
+        }
+        return readRepoSchema(projectPath)
+    }
+
+    private fun readRepoSchema(projectPath: String): String? {
+        val config = File(projectPath, "openspec/config.yaml")
+        if (!config.exists()) return null
+        val m = Regex("""^schema:\s*(.+)$""", RegexOption.MULTILINE).find(config.readText())
+        return m?.groupValues?.get(1)?.trim()
     }
 }
