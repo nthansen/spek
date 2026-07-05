@@ -63,9 +63,28 @@ code, pre {
   animation: fadeIn 150ms ease-out both;
 }
 
+/* live-activity pulse：某個 worktree 剛變動時，短暫以 accent 色描邊提示 */
+@keyframes worktreePulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 70%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-accent) 0%, transparent);
+  }
+}
+
+.animate-worktree-pulse {
+  animation: worktreePulse 1s ease-out 2;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in-up,
   .animate-fade-in {
     animation: none;
+  }
+  /* reduced-motion：不用動畫脈動，改用靜態 accent 描邊短暫提示（由 JS 於一段時間後移除 class） */
+  .animate-worktree-pulse {
+    animation: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 60%, transparent);
   }
 }

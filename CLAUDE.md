@@ -81,7 +81,8 @@ cd packages/intellij && ./gradlew buildPlugin
 ### Core Module (`@spek/core`)
 純函式 + 型別定義，可被 web server 和 extension host 共用：
 - `scanOpenSpec(basePath)` — 掃描單一目錄的 OpenSpec 結構
-- `scanOpenSpecAggregated(basePath, { aggregate })` — 跨 worktree 聚合掃描：探索同 repo 全部 worktree，active changes 聯集並附來源、archived 依 slug 去重、specs 取主 worktree；單一 worktree / 非 git / 關閉聚合時等同 `scanOpenSpec`
+- `scanOpenSpecAggregated(basePath, { aggregate })` — 跨 worktree 聚合掃描：探索同 repo 全部 worktree，active changes 聯集後**同 slug 依內容簽章調解**（`changeSignature` 相同則收合成單列並附 `worktrees` membership、分歧才分列，見 `mergeActiveChanges`）、archived 依 slug 去重、specs 取主 worktree；**排序以數值 epoch（git timestamp → slug date → 檔案 mtime fallback）降序**，讓未 commit / 剛編輯的 worktree change 浮到最前而非沉底；單一 worktree / 非 git / 關閉聚合時等同 `scanOpenSpec`。所有 worktree 邏輯皆 schema-agnostic（走訪 / 雜湊整個 change 目錄，不依賴 artifact 名或 schema）
+- `readChangeAggregated(basePath, slug, { wtKey?, aggregate? })` — 聚合感知讀取單一 change：解析 `wtKey`→worktree；來源 worktree 已消失（合併後被 prune）或已無此 slug 時，平順退回任一仍含此 slug 的 worktree（主 worktree 優先），不報錯；單一 worktree 免 `wtKey`。委派 `readChange`，故 detail 內容維持 schema-agnostic（動態 artifacts）
 - `readSpec(basePath, topic)` — 讀取單一 spec（含歷史）
 - `readChange(basePath, slug, orderProvider?)` — 讀取單一 change；回傳 `ChangeDetail`，內含動態探索的 `artifacts` 陣列（預設 mtime 序）、`schema` 欄位、以及 `schemaOrder`（schema 權威順序的 artifact id 清單，供前端 schema-order 排序用；只對 active change 查 CLI，archived / CLI 不可用時為 undefined）。`orderProvider` 可注入以利測試
 - `discoverArtifacts(changePath)` — 以檔案系統為準探索 change 的 artifacts：root 每個 `*.md`（忽略 dotfile / 非 md）為一個 artifact、非空 `specs/` 為一個 specs artifact，依 kind（`markdown` / `tasks` / `specs`）分類；排序依檔案 mtime 由新到舊（見下）。`countArtifacts(changePath)` 不讀內容算出數量供列表用
@@ -89,7 +90,8 @@ cd packages/intellij && ./gradlew buildPlugin
 - `readSpecAtChange(basePath, topic, slug)` — 讀取特定 change 中的 spec 歷史版本
 - `buildGraphData(basePath)` — 建立 spec-change 關聯圖資料
 - `buildGraphDataAggregated(basePath, { aggregate })` — 跨 worktree 聚合的關聯圖（change 節點 id 以 `change:<worktreeKey>:<slug>` 命名避免碰撞）
-- `listWorktrees(basePath)` — 以 `git worktree list --porcelain` 列出同 repo 全部 worktree；非 git / 無 `git` 時回 `[]`
+- `listWorktrees(basePath)` — 以 `git worktree list --porcelain` 列出同 repo 全部 worktree；非 git / 無 `git` 時回 `[]`。主 worktree 一律以結構（porcelain 首段 / `isMain`）辨識，不看分支名
+- `normalizeWorktreePath(p)` — worktree 路徑正規化（resolve + 分隔線一致 + Windows/macOS 大小寫不敏感），供辨識主 worktree、反查變動來源、`wtKey` 對應等所有比較；`worktreeKey` 亦以正規化路徑雜湊，避免磁碟機代號大小寫不一致造成誤判
 - `parseTasks(content)` — 解析 tasks.md checkbox
 - `extractHeadings(content)` / `slugifyHeading(text)` — 解析 markdown h2/h3 並產生穩定 slug，給 spec detail TOC 與 VS Code sidebar 共用（從 `@spek/core/headings` subpath 引入，避免 webview bundle 把 server-only 模組打包進去）
 - 共用型別：`OverviewData`, `SpecInfo`, `ChangeInfo`, `ChangeDetail`, `ChangeArtifact`, `ArtifactKind`, `GraphData`, `WorktreeInfo`, `WorktreeSource`, `Heading` 等。`ChangeDetail.artifacts: ChangeArtifact[]` 是跨 core / API / adapters / 各前端的通用合約，change detail 的 tab、TOC 都由它驅動（markdown / specs 有 TOC、tasks 無）
@@ -103,7 +105,9 @@ cd packages/intellij && ./gradlew buildPlugin
 
 ### API endpoints（Web 版，所有 openspec routes 接受 `dir` query param）
 
-`/changes`、`/overview`、`/graph`、`/watch` 另接受 `aggregate` query param（預設 true，跨 worktree 聚合；`aggregate=false` 關閉）。`/changes/:slug` 接受 `wt`（worktree key）以辨識同名 slug 的來源 worktree。
+`/changes`、`/overview`、`/graph` 接受 `aggregate` query param（預設 true，跨 worktree 聚合；`aggregate=false` 關閉）。`/watch` **一律聚合監看所有 worktree 的 `openspec/`**（不再依 `aggregate` 切換監看集合，前端負責篩選），SSE 事件為 `{"type":"changed","worktree":"<key>"}` 帶變動來源 worktree key 供前端標活動。`/changes/:slug` 接受 `wt`（worktree key）；來源 worktree 消失時平順退回（見 `readChangeAggregated`）。
+
+**Changes 頁 worktree 篩選 + live-activity**（共用 React SPA，故 web + VS Code webview 皆有）：頂端 worktree 篩選列（`All` 預設 + 每 worktree 多選 toggle，僅 >1 worktree 顯示），純 client-side 依 change 的 `worktrees` membership 篩選（選取集存 `localStorage["spek:worktree-filter:<repo>"]`，載入 / 重掃對照現存 worktree 調解、空或全選歸 `All`）。Active 列表**依 change title 分組**：change 有跨 worktree 的多個變體（收合的相同副本 + 分歧副本）時以群組卡呈現——表頭顯示 change 標題與「最進度」（完成任務最多的變體）摘要條，下方每個變體一列（最進度在最上、平手維持 recency），各列帶 worktree membership chips 與精簡進度條；單一變體（全 worktree 相同或單一 worktree）維持精簡單列。**worktree 選擇也直接掛在 change 上**（`WorktreeChips`）：每個 change row 對它所屬的每個 worktree 顯示一顆可點 chip、點擊導向該 worktree 副本（`?wt=`）；change detail 於該 change 存在於 >1 worktree 時顯示 worktree 切換器（`readChangeAggregated` 回傳的 `worktrees` membership 驅動，主 worktree 排第一），可切換檢視各 worktree 的副本並看哪個正在更新。全部依實際 worktree 數量渲染，不假設固定數量；單一 worktree 時 chips / 切換器 / 篩選列皆不顯示。live-reload 事件帶的 worktree key 經 `RefreshContext` 傳出，對應 worktree chip 與變動 row 短暫 pulse（尊重 `prefers-reduced-motion`），被篩選掉的 worktree 也 pulse chip 提示 off-screen 變動。VS Code panel 於重掃時重新評估 worktree watcher 集合（涵蓋開啟後新增 / prune 的 worktree）。IntelliJ 的 Kotlin port 尚無 worktree 聚合，平順退化為單一 worktree（篩選列不顯示）
 
 ```
 GET /api/fs/browse?path=...              # 目錄瀏覽

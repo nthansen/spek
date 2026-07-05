@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Worktree-aware Changes view** — the aggregate view is now the default and lets you steer the worktree dimension directly:
+  - A worktree filter row (All + a per-worktree toggle) on the Changes page; pick a subset or focus one worktree. Filtering is client-side and your selection persists per repo, reconciling as worktrees appear or merge away.
+  - Live activity: a file changed by an agent in any worktree pushes a live update, and the worktree that changed (plus its affected rows) briefly pulses — so you watch task progress climb across every worktree from one screen, without jumping between them. Honors reduced-motion.
+  - A change shared identically across worktrees (a branch point) now collapses into a single row showing which worktrees it lives in (e.g. `main +1`), instead of duplicate rows; genuinely diverging copies stay separate.
+  - The list groups each change across its worktrees: a change that differs between worktrees shows one row per variant under a shared header, furthest-along worktree on top, headlined by a furthest-along progress bar, with a compact progress meter per variant so 3/4 vs 2/4 reads at a glance. Identical/single-worktree changes stay a plain row.
+  - Worktree selection is also attached to the change itself: clickable worktree chips on each row jump straight to that worktree's copy, and the change detail has a worktree switcher to flip between copies. Scales to any number of worktrees.
+  - Recently edited / not-yet-committed worktree changes now sort to the top by file modification time instead of sinking to the bottom.
+  - Opening a change whose worktree was pruned after a merge now falls back gracefully to a worktree that still has it (main preferred) instead of erroring.
+
 ## 1.3.3
 
 - Fix: the IntelliJ plugin now installs on IntelliJ Platform 2026.1 (build 261.x) and newer — the `until-build` upper bound (`253.*`) that caused "requires IDE build 253.* or earlier" has been removed, so the plugin tracks current and future IDE releases (#4)

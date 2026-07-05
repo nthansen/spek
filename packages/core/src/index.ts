@@ -4,6 +4,7 @@ export {
   scanOpenSpecAggregated,
   readSpec,
   readChange,
+  readChangeAggregated,
   readSpecAtChange,
   findRelatedChanges,
   buildGraphData,
@@ -15,6 +16,7 @@ export {
   parseWorktreePorcelain,
   worktreeKey,
   toWorktreeSource,
+  normalizeWorktreePath,
 } from "./worktrees.js";
 export {
   getTimestamps,

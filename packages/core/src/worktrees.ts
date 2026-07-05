@@ -4,11 +4,24 @@ import path from "node:path";
 import type { WorktreeInfo, WorktreeSource } from "./types.js";
 
 /**
+ * 正規化 worktree 路徑供比較用：resolve 成絕對路徑、分隔線一律轉為 `/`，
+ * 並在大小寫不敏感的平台（Windows / macOS）上轉小寫。
+ * 用於辨識主 worktree、排除自身、以及 `wt` key 對應等所有路徑比較，
+ * 避免 `git worktree list` 與呼叫端提供的磁碟機代號 / 分隔線大小寫不一致造成誤判。
+ */
+export function normalizeWorktreePath(p: string): string {
+  const resolved = path.resolve(p).replace(/\\/g, "/");
+  return process.platform === "win32" || process.platform === "darwin"
+    ? resolved.toLowerCase()
+    : resolved;
+}
+
+/**
  * 由絕對路徑算出穩定、URL-safe 的 worktree key（sha1 前 8 碼）。
- * 同一路徑每次結果相同，不同路徑結果相異。
+ * 以正規化路徑為輸入，故同一 worktree 即使輸入的大小寫 / 分隔線不同也得到相同 key。
  */
 export function worktreeKey(absPath: string): string {
-  return createHash("sha1").update(path.resolve(absPath)).digest("hex").slice(0, 8);
+  return createHash("sha1").update(normalizeWorktreePath(absPath)).digest("hex").slice(0, 8);
 }
 
 /** 從完整的 WorktreeInfo 取出附加在 change 上的精簡來源資訊。 */

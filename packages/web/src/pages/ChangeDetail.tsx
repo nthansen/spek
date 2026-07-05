@@ -3,6 +3,7 @@ import { Link, useLocation, useParams, useSearchParams } from "react-router-dom"
 import { extractHeadings } from "@spek/core/headings";
 import type { ChangeArtifact } from "@spek/core";
 import { useChange, useSpecs } from "../hooks/useOpenSpec";
+import { WorktreeChips } from "../components/WorktreeChips";
 import { TabView } from "../components/TabView";
 import { TaskProgress } from "../components/TaskProgress";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
@@ -232,6 +233,12 @@ export function ChangeDetail() {
         &larr; Back to Changes
       </Link>
       <h1 className="text-2xl font-bold mt-2" title={slug}>{title}</h1>
+      {(data.worktrees?.length ?? 0) > 1 && (
+        <div className="flex items-center gap-2 mt-2 text-xs">
+          <span className="text-text-muted">Worktree:</span>
+          <WorktreeChips slug={slug ?? ""} worktrees={data.worktrees!} activeKey={data.source?.key} />
+        </div>
+      )}
       <div className="flex items-center gap-2 mt-2 mb-1">
         {data.schema && (
           <span

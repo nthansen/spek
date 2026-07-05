@@ -62,8 +62,18 @@ export interface ChangeInfo {
   /** 此 change 採用的 schema 名稱（.openspec.yaml schema → repo config.yaml fallback），無法判定為 null */
   schema: string | null;
   taskStats: TaskStats | null;
-  /** 來源 worktree；僅聚合掃描會填入，單一目錄掃描為 undefined */
+  /**
+   * change 目錄內最新檔案的修改時間（epoch ms）。供排序在沒有 git timestamp 時
+   * fallback 用，讓剛編輯 / 未 commit 的 change 浮到最前。掃描時填入。
+   */
+  mtime?: number | null;
+  /** 代表來源 worktree；僅聚合掃描會填入，單一目錄掃描為 undefined */
   source?: WorktreeSource;
+  /**
+   * 此 change 所屬的全部 worktree（聚合時填入）。內容相同而被收合的同 slug change
+   * 會列出它出現的每個 worktree；unique change 僅含自身。主 worktree 排第一。
+   */
+  worktrees?: WorktreeSource[];
 }
 
 /** 一個 change artifact 的 kind，決定解析與渲染方式 */
@@ -96,8 +106,13 @@ export interface ChangeDetail {
   /** schema 權威順序（artifact id 清單，供前端 schema-order 排序用）；CLI 不可用 / archived 時為 null */
   schemaOrder?: string[];
   metadata: Record<string, unknown> | null;
-  /** 來源 worktree；僅聚合讀取會填入 */
+  /** 讀取來源 worktree；僅聚合讀取會填入 */
   source?: WorktreeSource;
+  /**
+   * 仍含此 slug 的全部 worktree（主 worktree 排第一），供 detail 的 worktree 切換器用；
+   * 僅聚合且多 worktree 時填入。
+   */
+  worktrees?: WorktreeSource[];
 }
 
 export interface ChangesData {

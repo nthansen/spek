@@ -4,7 +4,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { parseWorktreePorcelain, worktreeKey, listWorktrees } from "./worktrees.js";
+import {
+  parseWorktreePorcelain,
+  worktreeKey,
+  listWorktrees,
+  normalizeWorktreePath,
+} from "./worktrees.js";
 
 // --- parseWorktreePorcelain（純函式） ---
 
@@ -74,6 +79,27 @@ test("worktreeKey: stable for the same path", () => {
 test("worktreeKey: distinct for different paths", () => {
   assert.notEqual(worktreeKey("/a/b/c"), worktreeKey("/a/b/d"));
 });
+
+// --- normalizeWorktreePath ---
+
+test("normalizeWorktreePath: separator / trailing-slash insensitive", () => {
+  assert.equal(normalizeWorktreePath("/repo/main"), normalizeWorktreePath("/repo/main/"));
+});
+
+test("normalizeWorktreePath: distinct paths differ", () => {
+  assert.notEqual(normalizeWorktreePath("/repo/main"), normalizeWorktreePath("/repo/other"));
+});
+
+// 大小寫不敏感只在 Windows / macOS 成立（磁碟機代號大小寫差異的 repro）
+if (process.platform === "win32" || process.platform === "darwin") {
+  test("normalizeWorktreePath: case-insensitive on case-insensitive platforms", () => {
+    assert.equal(normalizeWorktreePath("/Repo/Main"), normalizeWorktreePath("/repo/main"));
+  });
+
+  test("worktreeKey: same key despite case differences", () => {
+    assert.equal(worktreeKey("/Repo/Main"), worktreeKey("/repo/main"));
+  });
+}
 
 // --- listWorktrees（與真實 git 整合） ---
 

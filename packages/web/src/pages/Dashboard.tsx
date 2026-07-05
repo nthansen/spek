@@ -3,8 +3,8 @@ import { useOverview, useChanges } from "../hooks/useOpenSpec";
 import { TaskProgress } from "../components/TaskProgress";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 import { daysBetween, todayIso } from "../utils/lifecycle";
-import { WorktreeBadge } from "../components/WorktreeBadge";
-import { changeKey, changeTo } from "../utils/changeLink";
+import { WorktreeChips } from "../components/WorktreeChips";
+import { changeKey, changeTo, changeMembers } from "../utils/changeLink";
 
 const STALE_THRESHOLD_DAYS = 30;
 
@@ -74,7 +74,7 @@ export function Dashboard() {
                 <div className="flex items-center justify-between gap-4 mb-2">
                   <span className="flex items-center gap-2 min-w-0">
                     <span className="text-text-primary font-medium truncate">{c.description}</span>
-                    {showSource && c.source && <WorktreeBadge source={c.source} />}
+                    {showSource && <WorktreeChips slug={c.slug} worktrees={changeMembers(c)} activeKey={c.source?.key} />}
                   </span>
                   {(c.timestamp || c.date) && (
                     <span className="text-text-muted text-xs whitespace-nowrap shrink-0" title={c.timestamp || undefined}>
@@ -106,7 +106,7 @@ export function Dashboard() {
               >
                 <span className="flex items-center gap-2 min-w-0">
                   <span className="text-text-primary text-sm truncate">{c.description}</span>
-                  {showSource && c.source && <WorktreeBadge source={c.source} />}
+                  {showSource && <WorktreeChips slug={c.slug} worktrees={changeMembers(c)} activeKey={c.source?.key} />}
                 </span>
                 {(c.timestamp || c.date) && (
                   <span className="text-text-muted text-xs whitespace-nowrap shrink-0" title={c.timestamp || undefined}>

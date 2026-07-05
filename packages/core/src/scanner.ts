@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { parseTasks } from "./tasks.js";
 import { getTimestamps } from "./git-cache.js";
 import { listWorktrees, toWorktreeSource } from "./worktrees.js";
@@ -16,6 +17,7 @@ import type {
   GraphData,
   GraphNode,
   GraphEdge,
+  WorktreeInfo,
 } from "./types.js";
 
 function openspecDir(repoDir: string): string {
@@ -38,6 +40,89 @@ export function parseSlug(slug: string): { date: string | null; description: str
 function safeReadDir(dirPath: string): string[] {
   if (!fs.existsSync(dirPath)) return [];
   return fs.readdirSync(dirPath).filter((name) => !name.startsWith("."));
+}
+
+/** 遞迴收集目錄下所有檔案的絕對路徑（dotfile 一併納入，用於簽章 / mtime）。 */
+function walkFiles(dir: string, acc: string[] = []): string[] {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return acc;
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) walkFiles(full, acc);
+    else if (entry.isFile()) acc.push(full);
+  }
+  return acc;
+}
+
+/**
+ * change 目錄內最新檔案的修改時間（epoch ms）；空目錄 / 讀取失敗回 null。
+ * 供排序在沒有 git timestamp 時 fallback，使剛編輯 / 未 commit 的 change 浮到最前。
+ */
+function newestMtimeMs(changePath: string): number | null {
+  let newest: number | null = null;
+  for (const file of walkFiles(changePath)) {
+    try {
+      const m = fs.statSync(file).mtimeMs;
+      if (newest === null || m > newest) newest = m;
+    } catch {
+      // 忽略單一檔案 stat 失敗
+    }
+  }
+  return newest;
+}
+
+/**
+ * change 目錄的穩定內容簽章：對其下所有檔案的相對路徑＋內容雜湊。
+ * 兩個 worktree 指向位元完全相同的 change（如 branch point 共享且未編輯）得到相同簽章；
+ * 任一 worktree 有本地編輯即簽章相異。供聚合時判定同 slug 是「相同可收合」或「分歧須分列」。
+ */
+export function changeSignature(changePath: string): string {
+  const files = walkFiles(changePath)
+    .map((f) => ({ rel: path.relative(changePath, f).replace(/\\/g, "/"), abs: f }))
+    .sort((a, b) => a.rel.localeCompare(b.rel));
+  const hash = createHash("sha1");
+  for (const { rel, abs } of files) {
+    hash.update(rel);
+    hash.update("\0");
+    try {
+      // 正規化換行（CRLF/CR → LF）再雜湊：同一 commit 的 change 在不同 worktree 可能因
+      // autocrlf 而有不同換行（`git worktree add` 會依 autocrlf 重新 checkout），
+      // 但內容實質相同，應收合而非因換行差異被視為分歧。
+      const text = fs.readFileSync(abs, "utf-8").replace(/\r\n?/g, "\n");
+      hash.update(text);
+    } catch {
+      hash.update("\0missing");
+    }
+    hash.update("\0");
+  }
+  return hash.digest("hex");
+}
+
+/**
+ * change 的排序鍵（epoch ms，越大越新）：優先 git timestamp，其次 slug 日期，最後檔案 mtime。
+ * 讓沒有 git timestamp 的（剛建立 / 未 commit 的 worktree-local）change 以 mtime 浮到最前，
+ * 而非以空字串沉底。數值比較避免不同時區 offset 的 ISO 字串字典序誤判。
+ */
+function changeSortEpoch(c: ChangeInfo): number {
+  if (c.timestamp) {
+    const t = Date.parse(c.timestamp);
+    if (!Number.isNaN(t)) return t;
+  }
+  if (c.date) {
+    const t = Date.parse(`${c.date}T00:00:00Z`);
+    if (!Number.isNaN(t)) return t;
+  }
+  if (c.mtime != null) return c.mtime;
+  return 0;
+}
+
+/** 依排序鍵降序（最新在前）；同鍵維持穩定順序。 */
+function compareChangesByRecency(a: ChangeInfo, b: ChangeInfo): number {
+  return changeSortEpoch(b) - changeSortEpoch(a);
 }
 
 // 讀取 .openspec.yaml 的頂層 key:value 欄位（不支援 nested 結構，目前需求內僅有 schema/created）
@@ -116,14 +201,8 @@ function scanChangeDir(
     artifactCount: countArtifacts(changePath),
     schema: readChangeSchema(repoDir, changePath),
     taskStats,
+    mtime: newestMtimeMs(changePath),
   };
-}
-
-// 依 git timestamp 降序排列，無 timestamp 時 fallback 回 slug 日期。
-function compareChangesByTimestamp(a: ChangeInfo, b: ChangeInfo): number {
-  const ta = a.timestamp || a.date || "";
-  const tb = b.timestamp || b.date || "";
-  return tb.localeCompare(ta);
 }
 
 export async function scanOpenSpec(repoDir: string): Promise<ScanResult> {
@@ -141,12 +220,6 @@ export async function scanOpenSpec(repoDir: string): Promise<ScanResult> {
   // 取得 git timestamps
   const timestamps = await getTimestamps(repoDir);
 
-  const sortByTimestamp = (a: ChangeInfo, b: ChangeInfo) => {
-    const ta = a.timestamp || a.date || "";
-    const tb = b.timestamp || b.date || "";
-    return tb.localeCompare(ta);
-  };
-
   const activeChanges: ChangeInfo[] = safeReadDir(changesDir)
     .filter((name) => name !== "archive")
     .filter((name) => fs.statSync(path.join(changesDir, name)).isDirectory())
@@ -155,7 +228,7 @@ export async function scanOpenSpec(repoDir: string): Promise<ScanResult> {
       info.timestamp = timestamps.get(slug) || null;
       return info;
     })
-    .sort(sortByTimestamp);
+    .sort(compareChangesByRecency);
 
   const archivedChanges: ChangeInfo[] = safeReadDir(archiveDir)
     .filter((name) => fs.statSync(path.join(archiveDir, name)).isDirectory())
@@ -164,7 +237,7 @@ export async function scanOpenSpec(repoDir: string): Promise<ScanResult> {
       info.timestamp = timestamps.get(slug) || null;
       return info;
     })
-    .sort(sortByTimestamp);
+    .sort(compareChangesByRecency);
 
   // 計算每個 spec 被多少 changes 引用
   const allChangeDirs = [
@@ -261,6 +334,57 @@ export async function readChange(
     schemaOrder,
     metadata,
   };
+}
+
+/**
+ * 聚合感知地讀取單一 change，並在來源 worktree 已消失時平順退化。
+ * - `aggregate === false` 或單一 / 非 git worktree：等同 `readChange(repoDir, slug)`。
+ * - 指定 `wtKey` 且該 worktree 仍存在且含此 slug：從該 worktree 讀取並附 `source`。
+ * - `wtKey` 不存在、或該 worktree 已無此 slug（例如合併後被 prune）：退回任一仍含此 slug
+ *   的 worktree，主 worktree 優先，不報錯。
+ * 找不到任何含此 slug 的 worktree 時回 null。
+ */
+export async function readChangeAggregated(
+  repoDir: string,
+  slug: string,
+  opts: { wtKey?: string; aggregate?: boolean } = {},
+): Promise<ChangeDetail | null> {
+  const aggregate = opts.aggregate !== false;
+  const worktrees = aggregate ? await listWorktrees(repoDir) : [];
+
+  if (worktrees.length <= 1) {
+    return readChange(repoDir, slug);
+  }
+
+  // 解析順序：先指定的 wtKey，再主 worktree，最後其餘 worktree。主 worktree = 第一個非 bare。
+  const mainWt = worktrees.find((w) => !w.isBare) ?? worktrees[0];
+  const requested = opts.wtKey ? worktrees.find((w) => w.key === opts.wtKey) : undefined;
+  const ordered: WorktreeInfo[] = [];
+  const pushUnique = (wt: WorktreeInfo | undefined) => {
+    if (wt && !wt.isBare && !ordered.some((o) => o.key === wt.key)) ordered.push(wt);
+  };
+  pushUnique(requested);
+  pushUnique(mainWt);
+  for (const wt of worktrees) pushUnique(wt);
+
+  // membership：所有仍含此 slug 的 worktree（主 worktree 排第一），供 detail 的 worktree 切換器用
+  const changeExistsIn = (wtPath: string) => {
+    const changesDir = path.join(openspecDir(wtPath), "changes");
+    return (
+      fs.existsSync(path.join(changesDir, slug)) ||
+      fs.existsSync(path.join(changesDir, "archive", slug))
+    );
+  };
+  const membership = ordered
+    .filter((wt) => changeExistsIn(wt.path))
+    .sort((a, b) => (a.key === mainWt.key ? -1 : b.key === mainWt.key ? 1 : 0))
+    .map(toWorktreeSource);
+
+  for (const wt of ordered) {
+    const detail = await readChange(wt.path, slug);
+    if (detail) return { ...detail, source: toWorktreeSource(wt), worktrees: membership };
+  }
+  return null;
 }
 
 export function readSpecAtChange(
@@ -415,14 +539,9 @@ export async function scanOpenSpecAggregated(
   // 主 worktree = 第一個非 bare（通常即 worktrees[0]）
   const main = scans.find((s) => !s.wt.isBare) ?? scans[0];
 
-  // active changes：所有 worktree 聯集、不去重、附 source
-  const activeChanges: ChangeInfo[] = [];
-  for (const { wt, scan } of scans) {
-    const source = toWorktreeSource(wt);
-    for (const c of scan.activeChanges) {
-      activeChanges.push({ ...c, source });
-    }
-  }
+  // active changes：所有 worktree 聯集，同 slug 依內容簽章調解——
+  // 內容相同則收合成單列並附 membership，內容分歧則分列。
+  const activeChanges = mergeActiveChanges(scans, main.wt);
 
   // archived changes：依 slug 去重，主 worktree 優先，其餘只在獨有時加入
   const archivedBySlug = new Map<string, ChangeInfo>();
@@ -440,8 +559,8 @@ export async function scanOpenSpecAggregated(
   }
   const archivedChanges = [...archivedBySlug.values()];
 
-  activeChanges.sort(compareChangesByTimestamp);
-  archivedChanges.sort(compareChangesByTimestamp);
+  activeChanges.sort(compareChangesByRecency);
+  archivedChanges.sort(compareChangesByRecency);
 
   return {
     specs: main.scan.specs,
@@ -450,6 +569,66 @@ export async function scanOpenSpecAggregated(
     worktrees,
     aggregated: true,
   };
+}
+
+/**
+ * 聚合各 worktree 的 active changes：以 slug 分組，同 slug 依內容簽章調解。
+ * - unique slug：單列，source 與 membership 皆指向該 worktree。
+ * - 同 slug 內容相同：收合成單列，primary source 主 worktree 優先（否則首見者），
+ *   membership 列出全部出現的 worktree（主 worktree 排第一）。
+ * - 同 slug 內容分歧：每個相異簽章各自分列，各帶自身 source 與 membership。
+ */
+function mergeActiveChanges(
+  scans: { wt: WorktreeInfo; scan: ScanResult }[],
+  mainWt: WorktreeInfo,
+): ChangeInfo[] {
+  // slug -> 各 worktree 的該 change
+  const bySlug = new Map<string, { wt: WorktreeInfo; change: ChangeInfo }[]>();
+  for (const { wt, scan } of scans) {
+    for (const change of scan.activeChanges) {
+      const list = bySlug.get(change.slug) ?? [];
+      list.push({ wt, change });
+      bySlug.set(change.slug, list);
+    }
+  }
+
+  const changePath = (wt: WorktreeInfo, slug: string) =>
+    path.join(openspecDir(wt.path), "changes", slug);
+  // membership 主 worktree 排第一，其餘依 branch / key 穩定排序
+  const orderMembers = (members: WorktreeInfo[]) =>
+    [...members]
+      .sort((a, b) => {
+        if (a.key === mainWt.key) return -1;
+        if (b.key === mainWt.key) return 1;
+        return (a.branch ?? a.key).localeCompare(b.branch ?? b.key);
+      })
+      .map(toWorktreeSource);
+
+  const result: ChangeInfo[] = [];
+  for (const [slug, entries] of bySlug) {
+    if (entries.length === 1) {
+      const { wt, change } = entries[0];
+      result.push({ ...change, source: toWorktreeSource(wt), worktrees: orderMembers([wt]) });
+      continue;
+    }
+    // 同 slug 出現在多個 worktree：只在此時才算內容簽章
+    const bySig = new Map<string, { wt: WorktreeInfo; change: ChangeInfo }[]>();
+    for (const entry of entries) {
+      const sig = changeSignature(changePath(entry.wt, slug));
+      const group = bySig.get(sig) ?? [];
+      group.push(entry);
+      bySig.set(sig, group);
+    }
+    for (const group of bySig.values()) {
+      const primary = group.find((e) => e.wt.key === mainWt.key) ?? group[0];
+      result.push({
+        ...primary.change,
+        source: toWorktreeSource(primary.wt),
+        worktrees: orderMembers(group.map((e) => e.wt)),
+      });
+    }
+  }
+  return result;
 }
 
 /**

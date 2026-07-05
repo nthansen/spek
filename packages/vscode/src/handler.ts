@@ -6,12 +6,10 @@ import {
   scanOpenSpec,
   scanOpenSpecAggregated,
   readSpec,
-  readChange,
+  readChangeAggregated,
   readSpecAtChange,
   resyncTimestamps,
   buildGraphDataAggregated,
-  listWorktrees,
-  toWorktreeSource,
 } from "@spek/core";
 
 export class MessageHandler {
@@ -94,19 +92,9 @@ export class MessageHandler {
   }
 
   private async getChange(slug: string, wt?: string) {
-    // 指定 wt 時，解析對應 worktree 路徑後再讀
-    let targetDir = this.workspacePath;
-    let source: ReturnType<typeof toWorktreeSource> | undefined;
-    if (wt) {
-      const match = (await listWorktrees(this.workspacePath)).find((w) => w.key === wt);
-      if (match) {
-        targetDir = match.path;
-        source = toWorktreeSource(match);
-      }
-    }
-    const result = await readChange(targetDir, slug);
+    // 聚合感知讀取：解析 wt→worktree；來源 worktree 已消失時退回仍含此 slug 的 worktree（主優先）
+    const result = await readChangeAggregated(this.workspacePath, slug, { wtKey: wt });
     if (!result) throw new Error("Change not found");
-    if (source) result.source = source;
     return result;
   }
 

@@ -6,3 +6,5 @@ packages/core/dist/
 packages/vscode/dist/
 *.vsix
 .idea/
+.playwright-mcp/
+e2e-*.png

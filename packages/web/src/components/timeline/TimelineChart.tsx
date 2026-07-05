@@ -6,8 +6,8 @@ import { TimelineAxis } from "./TimelineAxis";
 import { TimelineBar, type BarHoverPayload } from "./TimelineBar";
 import { TimelineTooltip } from "./TimelineTooltip";
 import { todayIso } from "../../utils/lifecycle";
-import { changeTo } from "../../utils/changeLink";
-import { WorktreeBadge } from "../WorktreeBadge";
+import { changeTo, changeMembers } from "../../utils/changeLink";
+import { WorktreeChips } from "../WorktreeChips";
 import type { ChangeInfo } from "@spek/core";
 
 interface TimelineChartProps {
@@ -160,7 +160,7 @@ export function TimelineChart({ lanes, groupByTopic }: TimelineChartProps) {
                   title={item.change.description}
                 >
                   <span className="truncate">{item.change.slug}</span>
-                  {item.change.source && <WorktreeBadge source={item.change.source} />}
+                  {<WorktreeChips slug={item.change.slug} worktrees={changeMembers(item.change)} activeKey={item.change.source?.key} />}
                 </button>
               );
             })}

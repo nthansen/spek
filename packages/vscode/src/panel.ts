@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { MessageHandler } from "./handler";
 import { watchOpenspecDir } from "./watcher";
-import { listWorktrees } from "@spek/core";
+import { listWorktrees, normalizeWorktreePath } from "@spek/core";
 
 export class SpekPanel {
   private static instance: SpekPanel | undefined;
@@ -14,11 +14,17 @@ export class SpekPanel {
   private pendingMessages: unknown[] = [];
   private disposed = false;
   private fileChangeTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly workspacePath: string;
+  // 每個被監看的 worktree openspec 根（正規化路徑）→ watcher 與其 worktree key
+  private watchedRoots = new Map<string, { key: string | null; disposable: vscode.Disposable }>();
+  // 本 debounce 視窗內最後一個變動的 worktree key，附在通知上供前端標活動
+  private lastWorktree: string | null = null;
 
   private constructor(
     private readonly context: vscode.ExtensionContext,
   ) {
     const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
+    this.workspacePath = workspacePath;
 
     this.panel = vscode.window.createWebviewPanel(
       "spek",
@@ -93,10 +99,18 @@ export class SpekPanel {
       this.disposables,
     );
 
-    // 監聽 openspec 檔案變更，通知 webview 刷新。
-    // 聚合模式下也監看同 repo 其他 worktree 的 openspec/，任一 worktree 變更都會刷新。
-    this.watchOpenspec(workspacePath);
-    this.addWorktreeWatchers(workspacePath);
+    // 監聽 openspec 檔案變更，通知 webview 刷新。一律監看 repo 的所有 worktree openspec/，
+    // 任一 worktree 變更都會刷新並附上來源 worktree key。
+    void this.syncWorktreeWatchers();
+
+    // panel 重新可見時重新評估 worktree 集合，涵蓋開啟後才新增 / 移除的 worktree
+    this.panel.onDidChangeViewState(
+      () => {
+        if (this.panel.visible) void this.syncWorktreeWatchers();
+      },
+      null,
+      this.disposables,
+    );
 
     // Panel 關閉時清理
     this.panel.onDidDispose(
@@ -105,6 +119,8 @@ export class SpekPanel {
         this.disposed = true;
         this.webviewReady = false;
         this.pendingMessages = [];
+        for (const { disposable } of this.watchedRoots.values()) disposable.dispose();
+        this.watchedRoots.clear();
         this.disposables.forEach((d) => d.dispose());
         this.disposables = [];
       },
@@ -113,30 +129,45 @@ export class SpekPanel {
     );
   }
 
-  // 對指定目錄的 openspec/ 建立檔案監看，變更時 debounce 通知 webview
-  private watchOpenspec(dir: string): void {
+  /**
+   * 重新評估要監看的 worktree 集合：為每個現存 worktree 的 openspec/ 建立監看（若尚未有），
+   * 並關閉已消失（例如合併後被 prune）worktree 的監看。用正規化路徑比對，避免主 worktree
+   * 因大小寫 / 分隔線差異而漏監看或重複監看。非 git repo 時退回只監看 workspace 資料夾。
+   */
+  private async syncWorktreeWatchers(): Promise<void> {
     if (this.disposed) return;
-    const watcher = watchOpenspecDir(dir, () => this.notifyFileChange());
-    this.disposables.push(watcher);
-  }
+    const worktrees = (await listWorktrees(this.workspacePath)).filter((w) => !w.isBare);
+    if (this.disposed) return;
 
-  // 聚合模式：為同 repo 其他 worktree 的 openspec/ 也建立監看
-  private addWorktreeWatchers(workspacePath: string): void {
-    const main = path.resolve(workspacePath);
-    void listWorktrees(workspacePath).then((worktrees) => {
-      if (this.disposed) return;
-      for (const wt of worktrees) {
-        if (!wt.isBare && wt.path !== main) {
-          this.watchOpenspec(wt.path);
-        }
+    const desired = worktrees.length
+      ? worktrees.map((w) => ({ path: w.path, key: w.key }))
+      : [{ path: this.workspacePath, key: null }];
+    const desiredByNorm = new Map(desired.map((d) => [normalizeWorktreePath(d.path), d]));
+
+    // 新增缺少的
+    for (const [norm, d] of desiredByNorm) {
+      if (this.watchedRoots.has(norm)) continue;
+      const disposable = watchOpenspecDir(d.path, () => this.notifyFileChange(d.key));
+      this.watchedRoots.set(norm, { key: d.key, disposable });
+    }
+    // 移除已消失的
+    for (const [norm, entry] of this.watchedRoots) {
+      if (!desiredByNorm.has(norm)) {
+        entry.disposable.dispose();
+        this.watchedRoots.delete(norm);
       }
-    });
+    }
   }
 
-  private notifyFileChange(): void {
+  private notifyFileChange(worktreeKey?: string | null): void {
+    if (worktreeKey) this.lastWorktree = worktreeKey;
     if (this.fileChangeTimer) clearTimeout(this.fileChangeTimer);
     this.fileChangeTimer = setTimeout(() => {
-      this.panel.webview.postMessage({ type: "fileChanged" });
+      const worktree = this.lastWorktree ?? undefined;
+      this.lastWorktree = null;
+      this.panel.webview.postMessage({ type: "fileChanged", worktree });
+      // 借變動時機重新評估 worktree 集合，涵蓋新建 / 移除的 worktree
+      void this.syncWorktreeWatchers();
     }, 500);
   }
 
