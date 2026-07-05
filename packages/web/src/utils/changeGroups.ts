@@ -27,6 +27,14 @@ function completedOf(c: ChangeInfo): number {
 }
 
 /**
+ * 群組標題點擊的目標變體：最進度者（`variants[0]`，已於分組時依完成數排序）。
+ * 對應表頭顯示的「furthest」摘要；導向其 change detail 後可用 worktree 切換器切到其他副本。
+ */
+export function groupPrimaryVariant(group: ChangeGroup): ChangeInfo {
+  return group.variants[0];
+}
+
+/**
  * 依 slug 將 change 分組。群組順序 = 各 slug 首次出現的順序（後端已依 recency 排）；
  * 群組內變體以「最進度」排序（完成任務數由多到少），故最進度的 worktree 排最上，
  * 平手時維持輸入（recency）順序（V8 stable sort）。同 slug 的多個分歧副本落在同一組。

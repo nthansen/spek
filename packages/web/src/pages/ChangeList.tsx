@@ -17,7 +17,7 @@ import {
   toggleWorktree,
 } from "../utils/worktreeFilter";
 import { changeKey, changeTo, changeMembers } from "../utils/changeLink";
-import { groupChangesBySlug, type ChangeGroup } from "../utils/changeGroups";
+import { groupChangesBySlug, groupPrimaryVariant, type ChangeGroup } from "../utils/changeGroups";
 
 function changeMetaDisplay(c: ChangeInfo, today: string): { text: string; tooltip: string } | null {
   const lifecycle = formatLifecycleListRow(c, today);
@@ -89,7 +89,8 @@ function VariantRow({ v, today }: { v: ChangeInfo; today: string }) {
       }`}
     >
       <span className="min-w-0">
-        <WorktreeChips slug={v.slug} worktrees={members} activeKey={v.source?.key} />
+        {/* 群組變體列：每個變體都要標 worktree，包含只屬主 worktree 的分歧變體 */}
+        <WorktreeChips slug={v.slug} worktrees={members} activeKey={v.source?.key} hideLoneMain={false} />
       </span>
       <span className="flex items-center gap-3 shrink-0">
         {v.taskStats && v.taskStats.total > 0 && (
@@ -120,7 +121,13 @@ function ChangeGroupCard({ group, today }: { group: ChangeGroup; today: string }
       }`}
     >
       <div className="flex items-center justify-between gap-4 px-4 pt-4 pb-2">
-        <span className="text-text-primary font-medium truncate">{group.description}</span>
+        {/* 標題導向最進度變體的 change detail（該處有 worktree 切換器可切到其他副本） */}
+        <Link
+          to={changeTo(groupPrimaryVariant(group))}
+          className="text-text-primary font-medium truncate hover:text-accent transition-colors"
+        >
+          {group.description}
+        </Link>
         {group.furthest && (
           <span
             className="text-text-muted text-xs whitespace-nowrap shrink-0"

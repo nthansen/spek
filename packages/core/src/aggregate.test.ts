@@ -8,6 +8,7 @@ import {
   scanOpenSpecAggregated,
   buildGraphDataAggregated,
   changeSignature,
+  isSignatureFile,
   readChangeAggregated,
 } from "./scanner.js";
 import { listWorktrees } from "./worktrees.js";
@@ -173,6 +174,30 @@ test("changeSignature: identical dirs match, differing dirs differ", () => {
   writeFile(path.join(c, "specs", "x", "spec.md"), "delta\n");
   assert.equal(changeSignature(a), changeSignature(b), "identical trees share a signature");
   assert.notEqual(changeSignature(a), changeSignature(c), "differing content differs");
+});
+
+test("isSignatureFile: only .md/.yaml/.yml content files count", () => {
+  assert.ok(isSignatureFile("proposal.md"));
+  assert.ok(isSignatureFile("tasks.MD"));
+  assert.ok(isSignatureFile(".openspec.yaml"));
+  assert.ok(isSignatureFile("config.yml"));
+  assert.ok(!isSignatureFile("Thumbs.db"));
+  assert.ok(!isSignatureFile(".DS_Store"));
+  assert.ok(!isSignatureFile("proposal.md.swp"));
+  assert.ok(!isSignatureFile("tasks.md~"));
+});
+
+test("changeSignature: stray OS/editor files do not affect the signature", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "spek-sig-stray-"));
+  const clean = path.join(root, "clean");
+  const junked = path.join(root, "junked");
+  writeFile(path.join(clean, "proposal.md"), "same\n");
+  writeFile(path.join(junked, "proposal.md"), "same\n");
+  // junked 多了 OS / 編輯器雜物；內容實質相同應維持相同簽章而收合
+  writeFile(path.join(junked, "Thumbs.db"), "\0binary");
+  writeFile(path.join(junked, ".DS_Store"), "\0binary");
+  writeFile(path.join(junked, "proposal.md.swp"), "swap");
+  assert.equal(changeSignature(clean), changeSignature(junked), "stray files are ignored");
 });
 
 test("changeSignature: line-ending differences (CRLF vs LF) do not affect the signature", () => {

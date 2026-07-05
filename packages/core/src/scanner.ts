@@ -80,8 +80,19 @@ function newestMtimeMs(changePath: string): number | null {
  * 兩個 worktree 指向位元完全相同的 change（如 branch point 共享且未編輯）得到相同簽章；
  * 任一 worktree 有本地編輯即簽章相異。供聚合時判定同 slug 是「相同可收合」或「分歧須分列」。
  */
+/**
+ * 判定某檔名是否計入 change 內容簽章。只認 OpenSpec change 的內容檔
+ * （`.md` / `.yaml` / `.yml`，涵蓋 proposal/design/tasks/specs 與 `.openspec.yaml`），
+ * 藉此忽略作業系統與編輯器留下的雜物（`Thumbs.db`、`.DS_Store`、`*.swp`、`*~` 等）：
+ * 同一 change 在不同 worktree 若只差這些未追蹤檔案，仍應得到相同簽章而收合，不因雜物分歧。
+ */
+export function isSignatureFile(name: string): boolean {
+  return /\.(md|ya?ml)$/i.test(name);
+}
+
 export function changeSignature(changePath: string): string {
   const files = walkFiles(changePath)
+    .filter((f) => isSignatureFile(path.basename(f)))
     .map((f) => ({ rel: path.relative(changePath, f).replace(/\\/g, "/"), abs: f }))
     .sort((a, b) => a.rel.localeCompare(b.rel));
   const hash = createHash("sha1");

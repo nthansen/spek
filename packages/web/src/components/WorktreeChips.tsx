@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import type { WorktreeSource } from "@spek/core";
 import { useWorktreePulse } from "../hooks/useWorktreePulse";
+import { worktreeChipsToShow } from "../utils/worktreeChips";
 
 function labelOf(w: WorktreeSource): string {
   return w.branch ?? "detached";
@@ -34,22 +35,26 @@ function Chip({ slug, wt, active }: { slug: string; wt: WorktreeSource; active: 
 /**
  * 一組可點的 worktree chip，直接掛在「有多個 worktree 的 change」上：
  * 每顆導向該 worktree 的 change 副本，`activeKey` 標示目前檢視中的來源。
- * 只屬主 worktree 的單一 change 不顯示（沿用 badge 的低雜訊行為）。
+ * `hideLoneMain`（預設 true，standalone 單一變體列用）沿用 badge 低雜訊行為：
+ * 只屬主 worktree 的單一 change 不顯示。群組變體列傳 `hideLoneMain={false}`，
+ * 讓只屬主 worktree 的分歧變體仍被標示（否則該列會沒有任何 worktree 標籤）。
  */
 export function WorktreeChips({
   slug,
   worktrees,
   activeKey,
+  hideLoneMain = true,
 }: {
   slug: string;
   worktrees: WorktreeSource[];
   activeKey?: string;
+  hideLoneMain?: boolean;
 }) {
-  if (worktrees.length === 0) return null;
-  if (worktrees.length === 1 && worktrees[0].isMain) return null;
+  const chips = worktreeChipsToShow(worktrees, { hideLoneMain });
+  if (!chips) return null;
   return (
     <span className="flex items-center gap-1 flex-wrap">
-      {worktrees.map((wt) => (
+      {chips.map((wt) => (
         <Chip key={wt.key} slug={slug} wt={wt} active={wt.key === activeKey} />
       ))}
     </span>

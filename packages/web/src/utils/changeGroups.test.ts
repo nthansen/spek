@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { ChangeInfo } from "@spek/core";
-import { groupChangesBySlug, furthestTaskStats } from "./changeGroups.js";
+import { groupChangesBySlug, furthestTaskStats, groupPrimaryVariant } from "./changeGroups.js";
 
 function mk(slug: string, completed: number | null, branch: string): ChangeInfo {
   return {
@@ -55,6 +55,11 @@ test("groupChangesBySlug: furthest header reflects the most-progressed variant",
 test("furthestTaskStats: ignores variants without tasks, null when none have tasks", () => {
   assert.equal(furthestTaskStats([mk("x", null, "main"), mk("x", 1, "feat")])?.completed, 1);
   assert.equal(furthestTaskStats([mk("x", null, "main")]), null);
+});
+
+test("groupPrimaryVariant: title link targets the furthest-along variant", () => {
+  const groups = groupChangesBySlug([mk("x", 1, "main"), mk("x", 3, "feat")]);
+  assert.equal(groupPrimaryVariant(groups[0]).source?.branch, "feat");
 });
 
 test("groupChangesBySlug: single variant stays a one-entry group", () => {

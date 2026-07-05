@@ -10,6 +10,9 @@
   - Worktree selection is also attached to the change itself: clickable worktree chips on each row jump straight to that worktree's copy, and the change detail has a worktree switcher to flip between copies. Scales to any number of worktrees.
   - Recently edited / not-yet-committed worktree changes now sort to the top by file modification time instead of sinking to the bottom.
   - Opening a change whose worktree was pruned after a merge now falls back gracefully to a worktree that still has it (main preferred) instead of erroring.
+  - Every variant row now shows its worktree label — a variant that lives only in the main worktree is now tagged `main` instead of rendering with no label.
+  - Clicking a grouped change's title opens the furthest-along variant's detail (the worktree switcher there flips to the other copies).
+  - The content signature that decides whether copies collapse now ignores stray OS/editor files (`Thumbs.db`, `.DS_Store`, `*.swp`, `*~`), so identical changes no longer split into separate rows because of untracked junk.
 
 ## 1.3.3
 
