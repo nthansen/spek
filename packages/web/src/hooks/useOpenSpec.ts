@@ -3,6 +3,7 @@ import { useRepo } from "../contexts/RepoContext";
 import { useApiAdapter } from "../api/ApiAdapterContext";
 import { useRefreshKey } from "../contexts/RefreshContext";
 import { getAggregatePref } from "../utils/aggregatePref";
+import { getCached, setCached, initialFetchState } from "./fetchCache";
 import type {
   OverviewData,
   SpecInfo,
@@ -48,13 +49,12 @@ interface FetchState<T> {
 function useAsyncData<T>(
   fetcher: (() => Promise<T>) | null,
   deps: unknown[],
+  cacheKey?: string,
 ): FetchState<T> {
   const refreshKey = useRefreshKey();
-  const [state, setState] = useState<FetchState<T>>({
-    data: null,
-    loading: !!fetcher,
-    error: null,
-  });
+  const [state, setState] = useState<FetchState<T>>(() =>
+    initialFetchState<T>(getCached<T>(cacheKey), !!fetcher),
+  );
   const isRefresh = useRef(false);
   const prevRefreshKey = useRef(refreshKey);
 
@@ -69,23 +69,28 @@ function useAsyncData<T>(
     }
 
     let cancelled = false;
+    // 有快取（SWR）→ 直接帶入既有資料、背景重新驗證，不 flash（涵蓋 deps 變動時的重新掛載）
+    const cached = getCached<T>(cacheKey);
 
     const doFetch = () => {
-      // refreshKey 觸發時保留既有 data，不顯示 loading flash
-      if (!refreshTriggered) {
+      // refreshKey 觸發或已有快取時保留既有 data，不顯示 loading flash
+      if (!refreshTriggered && cached === undefined) {
         setState({ data: null, loading: true, error: null });
+      } else if (cached !== undefined) {
+        setState((prev) => (prev.data === cached ? prev : { data: cached, loading: false, error: null }));
       }
 
       fetcher()
         .then((data) => {
+          setCached(cacheKey, data);
           if (!cancelled) setState({ data, loading: false, error: null });
         })
         .catch((err) => {
           if (!cancelled)
             setState((prev) => ({
-              data: refreshTriggered ? prev.data : null,
+              data: prev.data ?? null,
               loading: false,
-              error: refreshTriggered && prev.data ? null : err.message,
+              error: prev.data ? null : err.message,
             }));
         });
     };
@@ -118,6 +123,7 @@ export function useOverview(aggregate?: boolean): FetchState<OverviewData> {
   return useAsyncData(
     repoPath ? () => adapter.getOverview(agg) : null,
     [repoPath, agg],
+    `overview:${repoPath}:${agg}`,
   );
 }
 
@@ -127,6 +133,7 @@ export function useSpecs(): FetchState<SpecInfo[]> {
   return useAsyncData(
     repoPath ? () => adapter.getSpecs() : null,
     [repoPath],
+    `specs:${repoPath}`,
   );
 }
 
@@ -136,6 +143,7 @@ export function useSpec(topic: string): FetchState<SpecDetail> {
   return useAsyncData(
     repoPath && topic ? () => adapter.getSpec(topic) : null,
     [repoPath, topic],
+    `spec:${repoPath}:${topic}`,
   );
 }
 
@@ -155,6 +163,7 @@ export function useChanges(aggregate?: boolean): FetchState<ChangesData> {
   return useAsyncData(
     repoPath ? () => adapter.getChanges(agg) : null,
     [repoPath, agg],
+    `changes:${repoPath}:${agg}`,
   );
 }
 
@@ -164,6 +173,7 @@ export function useChange(slug: string, wt?: string): FetchState<ChangeDetail> {
   return useAsyncData(
     repoPath && slug ? () => adapter.getChange(slug, wt) : null,
     [repoPath, slug, wt],
+    `change:${repoPath}:${slug}:${wt ?? ""}`,
   );
 }
 
@@ -196,6 +206,7 @@ export function useGraphData(aggregate?: boolean): FetchState<GraphData> {
   return useAsyncData(
     repoPath ? () => adapter.getGraphData(agg) : null,
     [repoPath, agg],
+    `graph:${repoPath}:${agg}`,
   );
 }
 
