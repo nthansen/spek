@@ -21,6 +21,10 @@ dependencies {
         pluginVerifier()
     }
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
+    // 純邏輯單元測試（OpenSpecScanner / ChangeReader 只吃路徑與本機檔案，不依賴 IntelliJ platform）
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 kotlin {
@@ -50,5 +54,8 @@ intellijPlatform {
 tasks {
     wrapper {
         gradleVersion = "8.11.1"
+    }
+    test {
+        useJUnitPlatform()
     }
 }
