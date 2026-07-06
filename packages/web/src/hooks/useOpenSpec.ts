@@ -9,7 +9,6 @@ import type {
   SpecInfo,
   SpecDetail,
   SpecVersionContent,
-  HistoryEntry as SpecHistoryEntry,
   ChangeInfo,
   ChangesData,
   ChangeDetail,
@@ -55,7 +54,6 @@ function useAsyncData<T>(
   const [state, setState] = useState<FetchState<T>>(() =>
     initialFetchState<T>(getCached<T>(cacheKey), !!fetcher),
   );
-  const isRefresh = useRef(false);
   const prevRefreshKey = useRef(refreshKey);
 
   useEffect(() => {
