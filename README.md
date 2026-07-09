@@ -321,7 +321,11 @@ This project was inspired by [龍哥（高見龍）](https://kaochenlong.com)'s 
 
 Thanks to everyone who has contributed to spek:
 
-- [@nthansen](https://github.com/nthansen) (Norman Hansen) — polling-based live-reload fallback for filesystems without native change events (devcontainer / WSL / network mounts)
+- [@nthansen](https://github.com/nthansen) (Norman Hansen)
+  - Custom OpenSpec schema support — a change's artifacts are discovered from disk, so any schema's artifacts render as their own tabs
+  - User-selectable artifact tab ordering (last-modified / schema order / A–Z), with schema order sourced from the OpenSpec CLI
+  - Schema badge across the Changes list, Dashboard, and Change Detail, hidden when it matches the repo default
+  - Polling-based live-reload fallback for filesystems without native change events (devcontainer / WSL / network mounts)
 
 ## License
 
