@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0
+
+- **Custom OpenSpec schemas** — a change's artifacts are now discovered from disk, so a change authored under any schema (not just the built-in `spec-driven`) renders every artifact as its own tab. Previously anything outside `proposal` / `design` / `tasks` / `specs` was silently dropped. Full-text search now indexes every markdown artifact as well.
+- **Artifact tab ordering** — tabs default to last-modified order so the artifact you're actively editing surfaces first. A sort control adds **Schema order** (sourced from the OpenSpec CLI, degrading gracefully to the default order when the CLI is unavailable or the change is archived) and **A–Z**. The choice persists across changes.
+- **Schema badge** — each change's schema is shown as a badge on the Changes list, the Dashboard, and Change Detail. It is hidden when the change uses the repo's default schema (from `openspec/config.yaml`), so a badge always means "this change uses a non-default schema"; the Changes page states the repo default as a plain-text label.
+
+Thanks to [@nthansen](https://github.com/nthansen) (Norman Hansen) for contributing all of the above.
+
 ## 1.4.0
 
 - Live-reload now works inside devcontainers and WSL. On filesystems that don't deliver native OS change events (9p / drvfs / NFS / CIFS / FUSE), spek automatically falls back to polling — so files created or edited after opening it are still detected. Detection is based on the watched path's filesystem type and needs no configuration; an optional `SPEK_WATCH_POLLING=on|off` escape hatch exists only if you ever need to force it. Applies to the Web, VS Code, and IntelliJ live variants. Thanks to [@nthansen](https://github.com/nthansen) (Norman Hansen) for contributing this feature.

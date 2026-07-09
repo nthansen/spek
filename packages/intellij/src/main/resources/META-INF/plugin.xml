@@ -24,9 +24,12 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <p><b>1.4.0</b></p>
+        <p><b>1.5.0</b></p>
         <ul>
-            <li>Live-reload now works inside devcontainers and WSL. On filesystems that don't deliver native OS change events (9p / drvfs / NFS / CIFS / FUSE), the plugin automatically falls back to polling, so files created or edited after opening it are still detected. Detection is based on the watched path's filesystem type and needs no configuration; an optional <code>SPEK_WATCH_POLLING=on|off</code> escape hatch exists only if you ever need to force it. Contributed by Norman Hansen (@nthansen).</li>
+            <li><b>Custom OpenSpec schemas</b> — a change's artifacts are now discovered from disk, so a change authored under any schema (not just the built-in <code>spec-driven</code>) renders every artifact as its own tab. Previously anything outside proposal / design / tasks / specs was silently dropped. Full-text search now indexes every markdown artifact as well.</li>
+            <li><b>Artifact tab ordering</b> — tabs default to last-modified order so the artifact you're actively editing surfaces first. A sort control adds Schema order (sourced from the OpenSpec CLI, degrading gracefully to the default order when the CLI is unavailable or the change is archived) and A–Z. The choice persists across changes.</li>
+            <li><b>Schema badge</b> — each change's schema is shown as a badge on the Changes list, the Dashboard, and Change Detail. It is hidden when the change uses the repo's default schema (from <code>openspec/config.yaml</code>), so a badge always means "this change uses a non-default schema"; the Changes page states the repo default as a plain-text label.</li>
+            <li>Thanks to Norman Hansen (@nthansen) for contributing all of the above.</li>
         </ul>
     ]]></change-notes>
 
