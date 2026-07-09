@@ -178,7 +178,7 @@ class SpekHttpRequestHandler : HttpRequestHandler() {
 
     private fun handleChanges(projectPath: String): String {
         val scan = OpenSpecScanner.scan(projectPath)
-        val data = ChangesData(scan.activeChanges, scan.archivedChanges)
+        val data = ChangesData(scan.activeChanges, scan.archivedChanges, scan.defaultSchema)
         return json.encodeToString(data)
     }
 

@@ -4,6 +4,7 @@ import { TaskProgress } from "../components/TaskProgress";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 import { daysBetween, todayIso } from "../utils/lifecycle";
 import { WorktreeBadge } from "../components/WorktreeBadge";
+import { SchemaBadge } from "../components/SchemaBadge";
 import { changeKey, changeTo } from "../utils/changeLink";
 
 const STALE_THRESHOLD_DAYS = 30;
@@ -28,6 +29,7 @@ export function Dashboard() {
   const activeChanges = changes.data?.active ?? [];
   const archivedChanges = (changes.data?.archived ?? []).slice(0, 10);
   const showSource = !!changes.data?.aggregated && (changes.data?.worktrees?.length ?? 0) > 1;
+  const defaultSchema = changes.data?.defaultSchema;
 
   const today = todayIso();
   const archivedSpans = (changes.data?.archived ?? [])
@@ -76,11 +78,14 @@ export function Dashboard() {
                     <span className="text-text-primary font-medium truncate">{c.description}</span>
                     {showSource && c.source && <WorktreeBadge source={c.source} />}
                   </span>
-                  {(c.timestamp || c.date) && (
-                    <span className="text-text-muted text-xs whitespace-nowrap shrink-0" title={c.timestamp || undefined}>
-                      {c.timestamp ? formatRelativeTime(c.timestamp) : c.date}
-                    </span>
-                  )}
+                  <span className="flex items-center gap-2 shrink-0">
+                    <SchemaBadge schema={c.schema} defaultSchema={defaultSchema} />
+                    {(c.timestamp || c.date) && (
+                      <span className="text-text-muted text-xs whitespace-nowrap" title={c.timestamp || undefined}>
+                        {c.timestamp ? formatRelativeTime(c.timestamp) : c.date}
+                      </span>
+                    )}
+                  </span>
                 </div>
                 {c.taskStats && (
                   <TaskProgress completed={c.taskStats.completed} total={c.taskStats.total} />
@@ -108,11 +113,14 @@ export function Dashboard() {
                   <span className="text-text-primary text-sm truncate">{c.description}</span>
                   {showSource && c.source && <WorktreeBadge source={c.source} />}
                 </span>
-                {(c.timestamp || c.date) && (
-                  <span className="text-text-muted text-xs whitespace-nowrap shrink-0" title={c.timestamp || undefined}>
-                    {c.timestamp ? formatRelativeTime(c.timestamp) : c.date}
-                  </span>
-                )}
+                <span className="flex items-center gap-2 shrink-0">
+                  <SchemaBadge schema={c.schema} defaultSchema={defaultSchema} />
+                  {(c.timestamp || c.date) && (
+                    <span className="text-text-muted text-xs whitespace-nowrap" title={c.timestamp || undefined}>
+                      {c.timestamp ? formatRelativeTime(c.timestamp) : c.date}
+                    </span>
+                  )}
+                </span>
               </Link>
             ))}
           </div>

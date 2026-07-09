@@ -91,6 +91,7 @@ export class MessageHandler {
       archived: scan.archivedChanges,
       worktrees: scan.worktrees,
       aggregated: scan.aggregated,
+      defaultSchema: scan.defaultSchema,
     };
   }
 

@@ -159,6 +159,7 @@ openspecRouter.get("/changes", async (req, res) => {
     archived: scan.archivedChanges,
     worktrees: scan.worktrees,
     aggregated: scan.aggregated,
+    defaultSchema: scan.defaultSchema,
   });
 });
 
