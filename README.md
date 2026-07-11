@@ -255,11 +255,26 @@ spek expects the following structure under your repository:
 
 ```
 packages/
-├── core/       # @spekjs/core — Pure logic (scanner, parser, types)
-├── web/        # @spekjs/web — Express API + React SPA
-├── vscode/     # spek-vscode — VS Code Extension
+├── core/       # @spekjs/core — Pure logic (scanner, parser, types)         [published to npm]
+├── ui/         # @spekjs/ui   — Reusable visualizations (graph, timeline)   [published to npm]
+├── web/        # @spekjs/web  — Express API + React SPA
+├── vscode/     # spek-vscode  — VS Code Extension
 └── intellij/   # spek-intellij — IntelliJ Platform Plugin (Kotlin)
 ```
+
+### Published packages
+
+Two packages are published so that hosts outside this monorepo can reuse them:
+
+- **[`@spekjs/core`](https://www.npmjs.com/package/@spekjs/core)** — the engine: scanner, tasks
+  parser, worktree aggregation, shared types. Pure Node.js, no framework.
+- **[`@spekjs/ui`](https://www.npmjs.com/package/@spekjs/ui)** — the two visualizations:
+  `<SpecGraph>` (force-directed spec ↔ change graph) and `<ChangeTimeline>` (Gantt-style change
+  lifecycle). **Presentational only** — no router, no data layer, no CSS framework. Colours are an
+  explicit contract of eight CSS custom properties, so a host re-themes them by overriding those.
+
+Within this monorepo they resolve through npm workspaces, so development is not gated on their
+release cadence. Both are released manually and version independently of the root.
 
 ### API Adapter Pattern
 
@@ -270,11 +285,15 @@ The frontend communicates through an `ApiAdapter` interface with two implementat
 
 This allows the same React UI to run in both environments without code changes.
 
+Note that `@spekjs/ui` does **not** depend on `ApiAdapter`: its components take data through props.
+Fetching is the host's concern — over HTTP here, over IPC in an Electron host.
+
 ### Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Core | TypeScript, Node.js |
+| UI package | React 19 (peer), d3 (force, zoom, drag, selection, transition), hand-written CSS |
 | Frontend | React 19, Vite 6, Tailwind CSS v4, React Router v7 |
 | Backend | Express 4 |
 | Markdown | react-markdown, remark-gfm |
@@ -287,8 +306,9 @@ This allows the same React UI to run in both environments without code changes.
 ```bash
 npm install              # Install all workspace dependencies
 npm run dev              # Start Vite (5173) + Express (3001)
-npm run build            # Build core + web
+npm run build            # Build core + ui + web
 npm run build:core       # Build @spekjs/core only
+npm run build:ui         # Build @spekjs/ui only
 npm run build:webview    # Build webview assets for VS Code extension
 npm run build:vscode     # Build VS Code extension
 npm run build:intellij   # Build IntelliJ webview assets
