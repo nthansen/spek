@@ -1,0 +1,237 @@
+/*
+ * @spekjs/ui —— 手寫的 CSS，**不依賴任何 CSS 框架**。
+ *
+ * 宿主 `import '@spekjs/ui/styles.css'` 即可。這裡做兩件事：
+ *
+ * 1. 宣告顏色契約的 8 個變數（深色預設值）。**宿主換膚就是在自己的 `:root` 覆寫它們。**
+ * 2. 提供元件的版面樣式，class 一律以 `spekui-` 為前綴，不與宿主的樣式衝突。
+ *
+ * 之所以不用 Tailwind 產這份 CSS：那會要求宿主也裝 Tailwind、且用同一套 token 命名。
+ * 下游的 Electron app 兩者都不成立（它的 token 是 `--color-ink` 那一套，來自它自己的 UI 雛型）。
+ */
+
+:root {
+  --spek-bg-primary: #0a0c0f;
+  --spek-bg-secondary: #111318;
+  --spek-bg-tertiary: #1a1d24;
+  --spek-border: #2a2d35;
+  --spek-text-primary: #e2e8f0;
+  --spek-text-secondary: #94a3b8;
+  --spek-text-muted: #64748b;
+  --spek-accent: #f59e0b;
+}
+
+/* ── SpecGraph ─────────────────────────────────────────────────────────── */
+
+.spekui-graph {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.spekui-legend {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--spek-border);
+  border-radius: 0.5rem;
+  background-color: color-mix(in srgb, var(--spek-bg-secondary) 90%, transparent);
+  color: var(--spek-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.spekui-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.spekui-legend-swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.625rem;
+  border-radius: 0.125rem;
+  flex-shrink: 0;
+}
+
+/* 節點的配色是這個視覺化自己的調色盤，不是宿主的主題色 —— 因此寫死，不走顏色契約。 */
+.spekui-legend-swatch--spec {
+  height: 0.75rem;
+  border-radius: 9999px;
+  background-color: #f59e0b;
+}
+
+.spekui-legend-swatch--active {
+  background-color: #22c55e;
+}
+
+.spekui-legend-swatch--archived {
+  background-color: #64748b;
+}
+
+/* ── ChangeTimeline ────────────────────────────────────────────────────── */
+
+.spekui-timeline {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--spek-border);
+  border-radius: 0.25rem;
+  background-color: var(--spek-bg-secondary);
+}
+
+.spekui-timeline-empty {
+  padding: 1.5rem;
+  color: var(--spek-text-muted);
+  font-size: 0.875rem;
+}
+
+.spekui-timeline-body {
+  display: flex;
+}
+
+.spekui-timeline-labels {
+  flex-shrink: 0;
+  border-right: 1px solid var(--spek-border);
+  background-color: var(--spek-bg-secondary);
+}
+
+.spekui-timeline-section {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 0.75rem 0.25rem;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--spek-text-muted);
+}
+
+.spekui-timeline-label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  width: 100%;
+  padding: 0 0.75rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--spek-text-secondary);
+  cursor: pointer;
+}
+
+.spekui-timeline-label:hover {
+  color: var(--spek-text-primary);
+  background-color: var(--spek-bg-tertiary);
+}
+
+.spekui-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* label 欄凍結、圖表區自己橫捲 —— 時間軸拉長時 slug 仍然看得見。 */
+.spekui-timeline-chart {
+  flex: 1 1 0%;
+  overflow-x: auto;
+}
+
+/* ── Tooltip ───────────────────────────────────────────────────────────── */
+
+.spekui-tooltip {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  padding: 0.75rem;
+  border: 1px solid var(--spek-border);
+  border-radius: 0.25rem;
+  background-color: var(--spek-bg-secondary);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--spek-text-muted);
+}
+
+.spekui-tooltip-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.spekui-tooltip-status {
+  display: inline-block;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.spekui-tooltip-status--active {
+  background-color: color-mix(in srgb, var(--spek-accent) 20%, transparent);
+  color: var(--spek-accent);
+}
+
+.spekui-tooltip-status--archived {
+  background-color: color-mix(in srgb, var(--spek-text-muted) 20%, transparent);
+  color: var(--spek-text-secondary);
+}
+
+.spekui-tooltip-slug {
+  color: var(--spek-text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spekui-tooltip-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 0.375rem;
+  color: var(--spek-text-secondary);
+}
+
+.spekui-tooltip-rows > * + * {
+  margin-top: 0.125rem;
+}
+
+.spekui-tooltip-value {
+  color: var(--spek-text-secondary);
+}
+
+.spekui-tooltip-ongoing {
+  opacity: 0.8;
+}
+
+.spekui-tooltip-topics {
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--spek-border);
+}
+
+.spekui-tooltip-topics-label {
+  margin-bottom: 0.125rem;
+}
+
+.spekui-tooltip-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.spekui-tooltip-chip {
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background-color: var(--spek-bg-tertiary);
+  color: var(--spek-text-secondary);
+}

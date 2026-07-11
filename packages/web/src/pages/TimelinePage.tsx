@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useChanges, useGraphData } from "../hooks/useOpenSpec";
 import type { ChangeInfo } from "@spekjs/core";
-import { buildLanes, type Lane } from "../components/timeline/grouping";
-import { TimelineChart } from "../components/timeline/TimelineChart";
+// Gantt 時間軸本身住在 @spekjs/ui（下游的 Electron 工作台用同一份）。
+// 這一頁只做宿主的事：取數、filter、導航、以及 web 專屬的 worktree badge。
+import { buildLanes, ChangeTimeline, type Lane } from "@spekjs/ui";
+import { WorktreeBadge } from "../components/WorktreeBadge";
 import { changeKey, changeTo } from "../utils/changeLink";
 
 function filterChanges(
@@ -42,6 +44,7 @@ function FilterChip({ label, active, onClick }: FilterChipProps) {
 
 export function TimelinePage() {
   const { data, loading, error } = useChanges();
+  const navigate = useNavigate();
   const [groupByTopic, setGroupByTopic] = useState(false);
   const [hideActive, setHideActive] = useState(false);
   const [hideArchived, setHideArchived] = useState(false);
@@ -63,6 +66,17 @@ export function TimelinePage() {
   const { lanes, unknownCreated } = useMemo(
     () => buildLanes(filtered, graph, groupByTopic),
     [filtered, graph, groupByTopic],
+  );
+
+  const handleSelectChange = useCallback(
+    (c: ChangeInfo) => navigate(changeTo(c)),
+    [navigate],
+  );
+
+  // worktree badge 只有聚合掃描才有來源可標 —— 它是 web 專屬的，因此由宿主注入而非內建於套件。
+  const renderBadge = useCallback(
+    (c: ChangeInfo) => (c.source ? <WorktreeBadge source={c.source} /> : null),
+    [],
   );
 
   if (loading) return <p className="text-text-muted">Loading...</p>;
@@ -123,7 +137,14 @@ export function TimelinePage() {
       )}
 
       {/* Chart */}
-      {totalLaneItems > 0 && <TimelineChart lanes={lanes} groupByTopic={groupByTopic} />}
+      {totalLaneItems > 0 && (
+        <ChangeTimeline
+          lanes={lanes}
+          groupByTopic={groupByTopic}
+          onSelectChange={handleSelectChange}
+          renderBadge={renderBadge}
+        />
+      )}
 
       {/* Unknown created */}
       {unknownCreated.length > 0 && (

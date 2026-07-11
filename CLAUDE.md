@@ -13,6 +13,7 @@ spek 是一個 OpenSpec 內容檢視器，提供四種使用方式：
 ## Tech Stack
 
 - **Core**: `@spekjs/core` — 共用邏輯（scanner、tasks parser、型別定義），純 Node.js。**已發佈至 npm public registry**，有獨立於 root 的版本線；唯一的 runtime 依賴是 `cross-spawn`。repo 內的 `packages/web` / `packages/vscode` 以 `"*"` 由 npm workspaces 解析到本地，不從 registry 抓，因此開發不受 core 發版節奏影響。
+- **UI**: `@spekjs/ui` — 可重用的視覺化元件（`SpecGraph` 力導向圖、`ChangeTimeline` Gantt）。**同樣發佈至 npm**，供 repo 外的宿主（`spek-workspace`，Electron agent 工作台）使用。**元件是純呈現層**：資料由 props 進、選擇由回呼出，**沒有 router、沒有 adapter、沒有 CSS 框架** —— 因為宿主之間這三件事完全不同。顏色以 8 個 `--spek-*` CSS 變數表達（套件擁有自己的變數名，不讀宿主的 token；否則命名不同的宿主會得到一張沒有顏色的圖）。`packages/web` 的 `/graph` 與 `/timeline` 兩頁退為薄殼：取數、loading／error、導航、主題訊號。
 - **Frontend**: React 19 + Vite + TypeScript + Tailwind CSS v4
 - **Backend**: Express.js (Node.js) — 讀取本地檔案系統提供 REST API
 - **VS Code Extension**: Webview Panel + esbuild bundling
@@ -27,6 +28,8 @@ spek 是一個 OpenSpec 內容檢視器，提供四種使用方式：
 packages/
 ├── core/       # @spekjs/core — 純邏輯，無框架依賴
 │   └── src/    # scanner.ts, tasks.ts, git-cache.ts, types.ts
+├── ui/         # @spekjs/ui — 可重用視覺化元件（純呈現層，無 router / adapter / CSS 框架）
+│   └── src/    # SpecGraph.tsx, timeline/*, theme.ts（顏色契約）, styles.css
 ├── web/        # @spekjs/web — Express + React 應用
 │   ├── server/ # Express API server
 │   └── src/    # React SPA + API adapters

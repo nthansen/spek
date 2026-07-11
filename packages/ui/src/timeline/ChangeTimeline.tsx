@@ -1,29 +1,63 @@
+import type { ChangeInfo } from "@spekjs/core";
+import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { dateRange, generateTicks, padDomain, scaleTime } from "./scale";
+import { CSS_VARS } from "../theme";
+import { todayIso } from "../date";
 import type { Lane } from "./grouping";
+import { dateRange, generateTicks, padDomain, scaleTime } from "./scale";
 import { TimelineAxis } from "./TimelineAxis";
 import { TimelineBar, type BarHoverPayload } from "./TimelineBar";
 import { TimelineTooltip } from "./TimelineTooltip";
-import { todayIso } from "../../utils/lifecycle";
-import { changeTo } from "../../utils/changeLink";
-import { WorktreeBadge } from "../WorktreeBadge";
-import type { ChangeInfo } from "@spekjs/core";
 
-interface TimelineChartProps {
-  lanes: Lane[];
-  groupByTopic: boolean;
+/**
+ * 時間軸的尺寸常數。
+ *
+ * `labelColWidth + minChartAreaWidth` 就是這張圖的**最小可用寬度**（預設 200 + 720 = 920px）。
+ * 低於它就一定會出現水平捲軸 —— 這不是 bug，是 Gantt 的本質：時間軸壓縮到一定程度，所有 bar
+ * 都會擠成一條線。
+ *
+ * 之所以做成可設定：下游宿主可能有較窄的容器。**但預設值刻意等同抽出前的寫死值**，
+ * 所以什麼都不傳 = 行為完全不變。
+ */
+export interface TimelineMetrics {
+  axisHeight: number;
+  rowHeight: number;
+  sectionHeight: number;
+  barHeight: number;
+  labelColWidth: number;
+  minChartAreaWidth: number;
+  rightPadding: number;
+  paddingDays: number;
 }
 
-const AXIS_HEIGHT = 36;
-const ROW_HEIGHT = 28;
-const SECTION_HEIGHT = 26;
-const BAR_HEIGHT = 12;
-const LABEL_COL_WIDTH = 200;
-const MIN_CHART_AREA_WIDTH = 720;
-const RIGHT_PADDING = 24;
-const PADDING_DAYS = 3;
+const DEFAULT_METRICS: TimelineMetrics = {
+  axisHeight: 36,
+  rowHeight: 28,
+  sectionHeight: 26,
+  barHeight: 12,
+  labelColWidth: 200,
+  minChartAreaWidth: 720,
+  rightPadding: 24,
+  paddingDays: 3,
+};
+
 const MS_PER_DAY = 86400000;
+
+export interface ChangeTimelineProps {
+  lanes: Lane[];
+  groupByTopic: boolean;
+  /** 使用者觸發一個 change（點 bar 或左欄的 label）。**元件不導航** —— 它只回報選擇。 */
+  onSelectChange?: (change: ChangeInfo) => void;
+  /**
+   * 左欄 label 旁的附加標記。
+   *
+   * 抽出前這裡寫死了 web 的 `WorktreeBadge`，而它依賴 `ChangeInfo.source` —— 那個欄位**只有聚合
+   * 掃描才會填**。非聚合的宿主（例如下游的 Electron app）永遠是 `undefined`。與其在套件裡塞一個
+   * 只有一個宿主用得到的元件，不如讓宿主自己注入。
+   */
+  renderBadge?: (change: ChangeInfo) => React.ReactNode;
+  metrics?: Partial<TimelineMetrics>;
+}
 
 interface RowMeta {
   kind: "section" | "item";
@@ -45,11 +79,40 @@ function buildRows(lanes: Lane[], groupByTopic: boolean): RowMeta[] {
 }
 
 function isoToUtcMs(iso: string): number {
-  return Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+  return Date.UTC(
+    Number(iso.slice(0, 4)),
+    Number(iso.slice(5, 7)) - 1,
+    Number(iso.slice(8, 10)),
+  );
 }
 
-export function TimelineChart({ lanes, groupByTopic }: TimelineChartProps) {
-  const navigate = useNavigate();
+/**
+ * change 生命週期的 Gantt 時間軸。
+ *
+ * **它與 `SpecGraph` 是兩個不同的視覺化**：這裡是時間（每個 change 一條橫條，自 `createdDate`
+ * 到 `archivedDate`；active 的延伸到今天並帶箭頭），關聯結構是 Graph 的事。
+ *
+ * lane 由 `buildLanes()` 產生（純函式，宿主自己呼叫）—— 這樣宿主可以先套用自己的 filter。
+ */
+export function ChangeTimeline({
+  lanes,
+  groupByTopic,
+  onSelectChange,
+  renderBadge,
+  metrics: metricsOverride,
+}: ChangeTimelineProps) {
+  const metrics = { ...DEFAULT_METRICS, ...metricsOverride };
+  const {
+    axisHeight,
+    rowHeight,
+    sectionHeight,
+    barHeight,
+    labelColWidth,
+    minChartAreaWidth,
+    rightPadding,
+    paddingDays,
+  } = metrics;
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<BarHoverPayload | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -73,19 +136,19 @@ export function TimelineChart({ lanes, groupByTopic }: TimelineChartProps) {
   const rows = useMemo(() => buildRows(lanes, groupByTopic), [lanes, groupByTopic]);
 
   const rowYs = useMemo(() => {
-    let y = AXIS_HEIGHT;
+    let y = axisHeight;
     return rows.map((r) => {
       const top = y;
-      y += r.kind === "section" ? SECTION_HEIGHT : ROW_HEIGHT;
+      y += r.kind === "section" ? sectionHeight : rowHeight;
       return top;
     });
-  }, [rows]);
+  }, [rows, axisHeight, sectionHeight, rowHeight]);
 
   const totalHeight =
     rowYs.length > 0
       ? rowYs[rowYs.length - 1] +
-        (rows[rows.length - 1].kind === "section" ? SECTION_HEIGHT : ROW_HEIGHT)
-      : AXIS_HEIGHT;
+        (rows[rows.length - 1].kind === "section" ? sectionHeight : rowHeight)
+      : axisHeight;
 
   const allDates = useMemo(() => {
     const arr: (string | null)[] = [];
@@ -102,39 +165,42 @@ export function TimelineChart({ lanes, groupByTopic }: TimelineChartProps) {
   const domain = useMemo(() => {
     const r = dateRange(allDates);
     if (!r) return null;
-    return padDomain(r.min, r.max, PADDING_DAYS);
-  }, [allDates]);
+    return padDomain(r.min, r.max, paddingDays);
+  }, [allDates, paddingDays]);
 
-  const chartAreaWidth = Math.max(MIN_CHART_AREA_WIDTH, containerWidth - LABEL_COL_WIDTH);
-  const innerWidth = chartAreaWidth - RIGHT_PADDING;
+  const chartAreaWidth = Math.max(minChartAreaWidth, containerWidth - labelColWidth);
+  const innerWidth = chartAreaWidth - rightPadding;
 
   const scale = useMemo(
     () => (domain ? scaleTime(domain.min, domain.max, 0, innerWidth) : null),
     [domain, innerWidth],
   );
-  const ticks = useMemo(() => (domain ? generateTicks(domain.min, domain.max) : { major: [], minor: [] }), [domain]);
+  const ticks = useMemo(
+    () => (domain ? generateTicks(domain.min, domain.max) : { major: [], minor: [] }),
+    [domain],
+  );
   const spanDays = useMemo(
-    () => (domain ? Math.max(1, Math.round((isoToUtcMs(domain.max) - isoToUtcMs(domain.min)) / MS_PER_DAY)) : 0),
+    () =>
+      domain
+        ? Math.max(
+            1,
+            Math.round((isoToUtcMs(domain.max) - isoToUtcMs(domain.min)) / MS_PER_DAY),
+          )
+        : 0,
     [domain],
   );
 
-  const handleClick = (c: ChangeInfo) => navigate(changeTo(c));
+  const handleClick = (c: ChangeInfo) => onSelectChange?.(c);
 
   return (
-    <div
-      ref={containerRef}
-      className="relative border border-border rounded bg-bg-secondary overflow-hidden"
-    >
+    <div ref={containerRef} className="spekui-timeline">
       {!domain ? (
-        <div className="p-6 text-text-muted text-sm">No timeline data to render.</div>
+        <div className="spekui-timeline-empty">No timeline data to render.</div>
       ) : (
-        <div className="flex">
+        <div className="spekui-timeline-body">
           {/* Label column */}
-          <div
-            className="shrink-0 border-r border-border bg-bg-secondary"
-            style={{ width: LABEL_COL_WIDTH }}
-          >
-            <div style={{ height: AXIS_HEIGHT }} />
+          <div className="spekui-timeline-labels" style={{ width: labelColWidth }}>
+            <div style={{ height: axisHeight }} />
             {rows.map((r, ri) => {
               if (r.kind === "section") {
                 const lane = lanes[r.laneIndex];
@@ -142,11 +208,11 @@ export function TimelineChart({ lanes, groupByTopic }: TimelineChartProps) {
                 return (
                   <div
                     key={`label-section-${ri}`}
-                    className="px-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted flex items-end pb-1"
-                    style={{ height: SECTION_HEIGHT }}
+                    className="spekui-timeline-section"
+                    style={{ height: sectionHeight }}
                     title={label ?? ""}
                   >
-                    <span className="truncate">{label}</span>
+                    <span className="spekui-truncate">{label}</span>
                   </div>
                 );
               }
@@ -154,20 +220,21 @@ export function TimelineChart({ lanes, groupByTopic }: TimelineChartProps) {
               return (
                 <button
                   key={`label-item-${ri}`}
+                  type="button"
                   onClick={() => handleClick(item.change)}
-                  className="w-full text-left px-3 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary cursor-pointer flex items-center gap-1.5"
-                  style={{ height: ROW_HEIGHT }}
+                  className="spekui-timeline-label"
+                  style={{ height: rowHeight }}
                   title={item.change.description}
                 >
-                  <span className="truncate">{item.change.slug}</span>
-                  {item.change.source && <WorktreeBadge source={item.change.source} />}
+                  <span className="spekui-truncate">{item.change.slug}</span>
+                  {renderBadge?.(item.change)}
                 </button>
               );
             })}
           </div>
 
           {/* Chart area */}
-          <div className="flex-1 overflow-x-auto">
+          <div className="spekui-timeline-chart">
             {scale && (
               <svg
                 width={chartAreaWidth}
@@ -179,7 +246,7 @@ export function TimelineChart({ lanes, groupByTopic }: TimelineChartProps) {
                   ticks={ticks}
                   scale={scale}
                   spanDays={spanDays}
-                  axisHeight={AXIS_HEIGHT}
+                  axisHeight={axisHeight}
                   chartHeight={totalHeight}
                   today={today}
                 />
@@ -190,15 +257,15 @@ export function TimelineChart({ lanes, groupByTopic }: TimelineChartProps) {
                         key={`section-sep-${ri}`}
                         x1={0}
                         x2={innerWidth}
-                        y1={rowYs[ri] + SECTION_HEIGHT - 1}
-                        y2={rowYs[ri] + SECTION_HEIGHT - 1}
-                        stroke="var(--color-border)"
+                        y1={rowYs[ri] + sectionHeight - 1}
+                        y2={rowYs[ri] + sectionHeight - 1}
+                        stroke={`var(${CSS_VARS.border})`}
                         strokeOpacity={0.6}
                       />
                     );
                   }
                   const item = lanes[r.laneIndex].items[r.itemIndex!];
-                  const barY = rowYs[ri] + (ROW_HEIGHT - BAR_HEIGHT) / 2;
+                  const barY = rowYs[ri] + (rowHeight - barHeight) / 2;
                   return (
                     <TimelineBar
                       key={`bar-${r.laneIndex}-${r.itemIndex}-${item.change.slug}`}
@@ -207,7 +274,7 @@ export function TimelineChart({ lanes, groupByTopic }: TimelineChartProps) {
                       scale={scale}
                       today={today}
                       y={barY}
-                      barHeight={BAR_HEIGHT}
+                      barHeight={barHeight}
                       onHover={setHover}
                       onClick={handleClick}
                     />

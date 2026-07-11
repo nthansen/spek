@@ -1,3 +1,4 @@
+import { CSS_VARS } from "../theme";
 import { formatTickLabel, type TickSet } from "./scale";
 
 interface TimelineAxisProps {
@@ -9,8 +10,20 @@ interface TimelineAxisProps {
   today: string;
 }
 
+// React 渲染的 SVG 可以直接用 var() —— 只有 d3 那種命令式寫屬性的才需要先解出顏色。
+const BORDER = `var(${CSS_VARS.border})`;
+const MUTED = `var(${CSS_VARS.textMuted})`;
+const ACCENT = `var(${CSS_VARS.accent})`;
+
 // 上方時間軸：major tick (label + 全長 grid line)、minor tick (淡 grid line)、today 虛線
-export function TimelineAxis({ ticks, scale, spanDays, axisHeight, chartHeight, today }: TimelineAxisProps) {
+export function TimelineAxis({
+  ticks,
+  scale,
+  spanDays,
+  axisHeight,
+  chartHeight,
+  today,
+}: TimelineAxisProps) {
   const todayX = scale(today);
   return (
     <g>
@@ -22,7 +35,7 @@ export function TimelineAxis({ ticks, scale, spanDays, axisHeight, chartHeight, 
           x2={scale(iso)}
           y1={axisHeight}
           y2={chartHeight}
-          stroke="var(--color-border)"
+          stroke={BORDER}
           strokeOpacity={0.4}
           strokeWidth={1}
         />
@@ -35,7 +48,7 @@ export function TimelineAxis({ ticks, scale, spanDays, axisHeight, chartHeight, 
           x2={scale(iso)}
           y1={axisHeight - 4}
           y2={chartHeight}
-          stroke="var(--color-border)"
+          stroke={BORDER}
           strokeWidth={1}
         />
       ))}
@@ -46,7 +59,7 @@ export function TimelineAxis({ ticks, scale, spanDays, axisHeight, chartHeight, 
           x={scale(iso) + 4}
           y={axisHeight - 8}
           fontSize={11}
-          fill="var(--color-text-muted)"
+          fill={MUTED}
         >
           {formatTickLabel(iso, spanDays)}
         </text>
@@ -57,18 +70,12 @@ export function TimelineAxis({ ticks, scale, spanDays, axisHeight, chartHeight, 
         x2={todayX}
         y1={axisHeight - 8}
         y2={chartHeight}
-        stroke="var(--color-accent)"
+        stroke={ACCENT}
         strokeOpacity={0.5}
         strokeWidth={1.5}
         strokeDasharray="4 3"
       />
-      <text
-        x={todayX + 4}
-        y={axisHeight - 22}
-        fontSize={10}
-        fill="var(--color-accent)"
-        fillOpacity={0.8}
-      >
+      <text x={todayX + 4} y={axisHeight - 22} fontSize={10} fill={ACCENT} fillOpacity={0.8}>
         today
       </text>
     </g>

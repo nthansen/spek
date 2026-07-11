@@ -1,0 +1,74 @@
+{
+  "name": "@spekjs/ui",
+  "version": "1.0.0",
+  "description": "Reusable OpenSpec visualizations — a force-directed spec/change graph and a Gantt-style change timeline. Presentational React components with no router, no data layer and no CSS framework.",
+  "keywords": [
+    "openspec",
+    "spec-driven-development",
+    "sdd",
+    "react",
+    "visualization",
+    "timeline",
+    "graph"
+  ],
+  "license": "MIT",
+  "author": "Kewang",
+  "homepage": "https://github.com/kewang/spek#readme",
+  "bugs": "https://github.com/kewang/spek/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kewang/spek.git",
+    "directory": "packages/ui"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "scripts": {
+    "build": "tsc && npm run build:css",
+    "build:css": "cp src/styles.css dist/styles.css",
+    "prepare": "npm run build",
+    "dev": "tsc --watch",
+    "test": "node --import tsx --test src/timeline/__tests__/*.test.ts"
+  },
+  "dependencies": {
+    "d3-drag": "^3.0.0",
+    "d3-force": "^3.0.0",
+    "d3-selection": "^3.0.0",
+    "d3-transition": "^3.0.1",
+    "d3-zoom": "^3.0.0"
+  },
+  "peerDependencies": {
+    "@spekjs/core": ">=1.0.0",
+    "react": ">=19.0.0",
+    "react-dom": ">=19.0.0"
+  },
+  "devDependencies": {
+    "@spekjs/core": "*",
+    "@types/d3-drag": "^3.0.7",
+    "@types/d3-force": "^3.0.10",
+    "@types/d3-selection": "^3.0.11",
+    "@types/d3-transition": "^3.0.9",
+    "@types/d3-zoom": "^3.0.8",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

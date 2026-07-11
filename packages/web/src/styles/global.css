@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@spekjs/ui/styles.css";
 
 @theme {
   --color-bg-primary: #0a0c0f;
@@ -10,6 +11,26 @@
   --color-text-muted: #64748b;
   --color-accent: #f59e0b;
   --color-accent-hover: #d97706;
+}
+
+/*
+ * `@spekjs/ui` 的顏色契約 —— 把套件的 8 個變數接到 web 既有的 token 上。
+ *
+ * 套件擁有自己的變數名（`--spek-*`），不讀宿主的 token —— 否則換一個 token 命名不同的宿主
+ * （下游的 Electron app 就是），圖會完全沒有顏色。這裡是「宿主換膚」的那一步：**只需覆寫這 8 個**。
+ *
+ * 必須在套件的 `styles.css` 之後（同為 `:root`，後者勝出），且因為值是 `var(--color-*)`，
+ * 淺色主題的切換會自動跟著走 —— 不必為 `[data-theme="light"]` 再寫一份。
+ */
+:root {
+  --spek-bg-primary: var(--color-bg-primary);
+  --spek-bg-secondary: var(--color-bg-secondary);
+  --spek-bg-tertiary: var(--color-bg-tertiary);
+  --spek-border: var(--color-border);
+  --spek-text-primary: var(--color-text-primary);
+  --spek-text-secondary: var(--color-text-secondary);
+  --spek-text-muted: var(--color-text-muted);
+  --spek-accent: var(--color-accent);
 }
 
 [data-theme="light"] {

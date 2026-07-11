@@ -1,4 +1,5 @@
 import type { ChangeInfo } from "@spekjs/core";
+import { CSS_VARS } from "../theme";
 
 interface TimelineBarProps {
   change: ChangeInfo;
@@ -23,7 +24,16 @@ const ARROW_WIDTH = 6;
 const MIN_BAR_WIDTH = 4;
 
 // 單條 bar：archived 為固定區段，active 延伸到 today 並右端帶箭頭三角形。
-export function TimelineBar({ change, topics, scale, today, y, barHeight, onHover, onClick }: TimelineBarProps) {
+export function TimelineBar({
+  change,
+  topics,
+  scale,
+  today,
+  y,
+  barHeight,
+  onHover,
+  onClick,
+}: TimelineBarProps) {
   if (!change.createdDate) return null;
 
   const isArchived = change.status === "archived" && change.archivedDate;
@@ -31,7 +41,7 @@ export function TimelineBar({ change, topics, scale, today, y, barHeight, onHove
   const endX = isArchived ? scale(change.archivedDate as string) : scale(today);
   const rawWidth = Math.max(MIN_BAR_WIDTH, endX - startX);
 
-  const fill = isArchived ? "var(--color-text-muted)" : "var(--color-accent)";
+  const fill = isArchived ? `var(${CSS_VARS.textMuted})` : `var(${CSS_VARS.accent})`;
   const fillOpacity = isArchived ? 0.45 : 0.75;
 
   const handleMove = (e: React.MouseEvent<SVGGElement>) => {
