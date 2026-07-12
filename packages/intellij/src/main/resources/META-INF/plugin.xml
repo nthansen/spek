@@ -25,10 +25,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <p><b>1.6.0</b></p>
+        <p><b>1.6.1</b></p>
         <ul>
-            <li><b>Hideable tree navigator</b> — the Specs / Changes tree in the spek tool window can now be hidden from the tool window title bar or its gear menu, giving the viewer the full tool window. The choice is remembered per project, and the split ratio is persisted too instead of resetting every time you reopen the project. While hidden, the tree no longer rebuilds on file changes; it refreshes when you bring it back.</li>
-            <li>Thanks to Denis Krizanovic (@deniskrizanovic) for reporting.</li>
+            <li><b>TOC navigation lands on the section you clicked</b> — clicking a table-of-contents entry, or opening a #hash deep link, on a Change or Spec detail page no longer scrolls the target heading behind the sticky header, which made it look like the click had jumped one section too far. The offset is now measured from the header that is actually rendered instead of an assumed 80px, and the entry you clicked is the one the TOC highlights.</li>
+            <li><b>Schema badge under worktree aggregation</b> — when changes are aggregated across worktrees, each change's schema is now compared against the default schema of the worktree it actually lives in, rather than the main worktree's. A change that uses its own worktree's default no longer shows a badge, and the list and detail views agree on this.</li>
+            <li>Thanks to Norman Hansen (@nthansen) for both.</li>
         </ul>
     ]]></change-notes>
 
