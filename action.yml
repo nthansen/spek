@@ -63,6 +63,14 @@ runs:
       shell: bash
       run: npm run build:core --prefix .spek-builder
 
+    # 必須明確 build ui：靜態站的 CSS 由 `@spekjs/ui/styles.css` 進來，而 `npm ci` **不會**
+    # 建它（ui 的 build 掛在 `prepublishOnly`，不是 `prepare` —— 掛 `prepare` 會在 workspace
+    # symlink 建好之前跑，讓整個 `npm ci` 死掉）。少了這一步，vite 會解析不到
+    # `@spekjs/ui/styles.css`，建置失敗。
+    - name: Build @spekjs/ui
+      shell: bash
+      run: npm run build:ui --prefix .spek-builder
+
     # spek delegates custom-schema artifact ordering to the OpenSpec CLI. Installing it lets
     # the static site reflect the schema's authoritative artifact order. It is optional:
     # if the install fails, the build still succeeds with default (filename) ordering.

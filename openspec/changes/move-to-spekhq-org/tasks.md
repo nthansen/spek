@@ -77,8 +77,25 @@
 - [x] 7.2 重新 deploy Pages（`gh workflow run pages.yml`），實測 `demo.html` 與 3 個 badge 皆回 200。
       **根路徑 `/` 是 404 —— 本來就這樣，不是 regression**：`docs/` 裡沒有 `index.html`，這個站
       一直是走 `/demo.html` 與 `/badges/*` 兩條路徑
-- [ ] 7.3 以一個真的 workflow 實測 `uses: spekhq/spek@v1` 跑得起來（action 的**兩層**都要走過 ——
-      光看 `action.yml` 的字面改對了，證明不了它 checkout 得到自己）
+- [x] 7.3 以一個真的 workflow 實測 `uses: spekhq/spek@master` 跑得起來（action 的**兩層**都要走過 ——
+      光看 `action.yml` 的字面改對了，證明不了它 checkout 得到自己）。
+      **兩層皆證實正常**（`uses:` 解析成功；action 也真的從 `spekhq/spek` checkout 了自己的原始碼，
+      並掃到 44 specs / 1 active / 72 archived）。但這支測試**撞到一個既有的 regression**，見 §9
+
+## 9. 修好煙霧測試挖出來的線上 bug（不屬於搬遷，由使用者裁決納入本 change）
+
+> `action.yml` 只 build `@spekjs/core`，從來沒 build `@spekjs/ui`。以前可行是因為 ui 帶著
+> `"prepare": "npm run build"`，`npm ci` 會順便建它；上一個 change（`fix-publish-workflow-install`）
+> 把 `prepare` 改成 `prepublishOnly` 後，action 的 ui build **靜默消失**，vite 解析不到
+> `@spekjs/ui/styles.css`。**影響所有使用者且換 tag 躲不掉** —— `spek-version` 預設 `"master"`，
+> 即使寫 `uses: spekhq/spek@v1` 也是 checkout master 來建置。
+
+- [x] 9.1 `action.yml` 在 `build:core` 之後補一步 `build:ui`
+- [x] 9.2 **補上病因**：`github-action` 的 delta spec 新增 `Requirement: Action build chain`。
+      上一個 change 之所以修得好 VS Code 與 IntelliJ，是因為 `vscode-cicd` / `intellij-cicd` 各自
+      都有一條 build chain requirement 逼它去對齊；**`github-action` 一條都沒有，於是沒有東西需要
+      更新、也沒有東西會失敗**。只改 `action.yml` 是修症狀，補這條 requirement 才是修病因
+- [ ] 9.3 重跑煙霧測試，確認 action 真的建得出靜態站與 badge
 
 ## 8. 發佈（design D4 —— **兩條路徑，缺一不可**）
 

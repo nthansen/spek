@@ -29,6 +29,34 @@ load-bearing for already-published npm package metadata, which cannot be amended
 - **WHEN** `action.yml` is inspected
 - **THEN** no step references `kewang/spek`
 
+### Requirement: Action build chain
+
+After installing its dependencies, the composite action SHALL explicitly build every workspace
+package the static site depends on — `@spekjs/core` **and** `@spekjs/ui` — and SHALL NOT rely on an
+install-time lifecycle hook to have built them.
+
+This requirement is the missing piece that let the action break silently. `@spekjs/ui` builds at
+**publish** time (`prepublishOnly`), not at install time: a `prepare` hook would run before npm has
+created the workspace symlinks, so the package's build could not resolve `@spekjs/core` and it took
+the whole `npm ci` down. The action's `npm ci` therefore produces no `dist` for the workspace
+packages — while the static-site build resolves `@spekjs/ui/styles.css` out of exactly that `dist`.
+
+When ui's build moved off `prepare`, the VS Code and IntelliJ pipelines were repaired because their
+capabilities each carry a build-chain requirement. **This capability carried none, so there was
+nothing to update and nothing to fail** — the action shipped broken. The requirement exists so that
+any future change to how the packages are built has something here that must be reconciled.
+
+#### Scenario: Workspace packages built before the site build
+
+- **WHEN** the action runs
+- **THEN** it builds `@spekjs/core` and `@spekjs/ui` after `npm ci`, before invoking the
+  static-site build
+
+#### Scenario: No reliance on install-time builds
+
+- **WHEN** `npm ci` runs inside the action's checkout of spek
+- **THEN** the action does not assume it produced any workspace package's `dist`
+
 ## MODIFIED Requirements
 
 ### Requirement: Major version tag

@@ -27,6 +27,27 @@ GitHub org **`spekhq`** 已建立，私有的 Electron 工作台 `spekterm` 已 
 - 所有 Pages URL（3 個 badge、Live Demo）改為 `spekhq.github.io/spek`，並重新 deploy Pages。
 - npm、VS Code Marketplace、JetBrains Marketplace 的 listing 連結與 badge，**必須各自發一次新版才會更新** —— listing 是 README 的**發佈快照**，改了 repo 裡的 README 不會回頭修正已發佈的頁面（否則那些商店頁上的 badge 會一直是破圖）。
 
+## 額外納入：修好一個被搬遷驗收挖出來的線上 bug
+
+驗收「action 在新位置跑得起來」的煙霧測試**失敗了 —— 但不是因為搬遷**（兩層都證實正常：`uses:`
+解析到 `spekhq/spek`，action 也成功 checkout 了自己的原始碼）。它撞到的是一個**既有的、與搬遷無關的
+regression**：
+
+- **`action.yml` 只 build `@spekjs/core`，從來沒 build `@spekjs/ui`。** 以前這樣可行，是因為 ui 帶著
+  `"prepare": "npm run build"`，`npm ci` 會**順便**把它的 dist 建出來。
+- 上一個 change（`fix-publish-workflow-install`）為了修好 `npm ci` 在發佈 workflow 裡爆掉的問題，
+  把 `prepare` 改成 `prepublishOnly`。它修了 VS Code 與 IntelliJ 的 pipeline —— **但 action 的 ui
+  build 就此靜默消失**，靜態站建置時 vite 解析不到 `@spekjs/ui/styles.css`。
+- **影響範圍是所有使用者，換 tag 也躲不掉**：`spek-version` 預設為 `"master"`，所以即使寫
+  `uses: spekhq/spek@v1`，action 仍會 checkout master 來建置。**Marketplace 上那個 action 是壞的。**
+
+**病因不是 `action.yml` 寫錯，是 spec 有洞。** 上一個 change 之所以能修好另外兩條 pipeline，是因為
+`vscode-cicd` 與 `intellij-cicd` 各自都有一條 build chain 的 requirement 要求它去對齊 ——
+**`github-action` 一條都沒有，於是沒有東西需要更新、也沒有東西會失敗。** 因此本 change 除了補上
+`action.yml` 的建置步驟，也補上那條缺席的 requirement。
+
+（此 bug 由使用者裁決納入本 change，不另開 change。）
+
 ## Capabilities
 
 ### New Capabilities
@@ -35,7 +56,10 @@ GitHub org **`spekhq`** 已建立，私有的 Electron 工作台 `spekterm` 已 
 
 ### Modified Capabilities
 
-- `github-action`：action 的來源 repo 與所有 `uses:` 參照從 `kewang/spek` 改為 `spekhq/spek`。
+- `github-action`：
+  - action 的來源 repo 與所有 `uses:` 參照從 `kewang/spek` 改為 `spekhq/spek`。
+  - **新增 build chain 的 requirement**：action 必須明確建置 `@spekjs/core` **與** `@spekjs/ui`，
+    不得依賴安裝期的 lifecycle hook 代勞。
 
 > `intellij-marketplace-metadata` 與 `vscode-marketplace-metadata` **不需要 delta** —— 它們的 requirement 是泛稱（「vendor url 指向 GitHub repository」「package.json 包含 `repository` 欄位」），沒有寫死 owner。改的是實作值，不是 requirement 的行為。
 
