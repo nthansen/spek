@@ -25,9 +25,9 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <p><b>1.8.1</b></p>
+        <p><b>1.8.2</b></p>
         <ul>
-            <li>No user-facing changes for the plugin in this release. The Web and VS Code fix for changes appearing once per git worktree does not apply here — the plugin has its own copy of the scanning logic, which still lists every worktree's copy.</li>
+            <li><b>Opening a change is much faster.</b> Each change took about a second to open. To order a change's tabs, spek asks the OpenSpec CLI for the artifact order that the change's schema defines — and it repeated that request for every change, even though every change sharing a schema gets the same answer back. The answer is now looked up once per schema instead of once per change, so only the first change you open pays for it and the rest open immediately. Unlike the previous release's worktree fix, this one did land in the plugin — its Kotlin copy of the logic was changed alongside the shared one. Thanks to <a href="https://github.com/nthansen">@nthansen</a> (Norman Hansen) for contributing this.</li>
         </ul>
     ]]></change-notes>
 
