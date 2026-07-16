@@ -349,6 +349,9 @@ Thanks to everyone who has contributed to spek:
   - Worktree-aware schema baseline — under aggregation each change's badge is judged against its own worktree's default schema, and scanning reads each worktree's config once instead of once per change
   - TOC and `#hash` navigation that lands the target heading below the sticky header instead of behind it
 
+- [@david-lutz](https://github.com/david-lutz) (David Lutz)
+  - Deduplication of active changes shared across git worktrees, in both the Changes list and the dependency graph — the surviving copy is elected from git divergence rather than file timestamps, which a fresh checkout rewrites
+
 ## License
 
 MIT
